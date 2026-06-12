@@ -27,6 +27,16 @@ function loadSettings() {
 
 const savedSettings = loadSettings();
 
+const GROOVE_SOUND_KEY = 'mpc-studio:groove-sound';
+function loadGrooveSound() {
+  try {
+    const v = localStorage.getItem(GROOVE_SOUND_KEY);
+    return v === null ? true : v === 'true';
+  } catch {
+    return true;
+  }
+}
+
 function snapshotOf(state) {
   return {
     rows: JSON.parse(JSON.stringify(state.rows)),
@@ -49,6 +59,7 @@ export const useGrooveStore = create((set, get) => ({
   currentTick: -1,
   resolution: '1/16',
   loopEnabled: true,
+  previewSound: loadGrooveSound(),
   rows: makeDefaultRows(),
   activePatternName: localStorage.getItem(LS_KEYS.activePattern) || null,
   savedPatterns: loadPatterns(),
@@ -59,6 +70,14 @@ export const useGrooveStore = create((set, get) => ({
   setCurrentTick: (currentTick) => set({ currentTick }),
   setResolution: (resolution) => set({ resolution }),
   toggleLoop: () => set((s) => ({ loopEnabled: !s.loopEnabled })),
+  setPreviewSound: (previewSound) => {
+    try {
+      localStorage.setItem(GROOVE_SOUND_KEY, String(previewSound));
+    } catch {
+      /* storage unavailable */
+    }
+    set({ previewSound });
+  },
 
   /** Toggle a note at an absolute tick within the bar. */
   toggleNote: (rowId, tick, velocity = DEFAULT_VELOCITY) =>

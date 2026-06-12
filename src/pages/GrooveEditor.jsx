@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Play, Square, RotateCcw, Save, Copy, Trash2, Download, Repeat, Cast, HelpCircle } from 'lucide-react';
+import { Play, Square, RotateCcw, Save, Copy, Trash2, Download, Repeat, Cast, HelpCircle, Volume2, VolumeX } from 'lucide-react';
 import { useGrooveStore } from '../store/grooveStore';
 import { useSequencer } from '../hooks/useSequencer';
 import { useMidi } from '../hooks/useMidi';
@@ -341,6 +341,8 @@ export default function GrooveEditor() {
   const resolution = useGrooveStore((s) => s.resolution);
   const loopEnabled = useGrooveStore((s) => s.loopEnabled);
   const toggleLoop = useGrooveStore((s) => s.toggleLoop);
+  const previewSound = useGrooveStore((s) => s.previewSound);
+  const setPreviewSound = useGrooveStore((s) => s.setPreviewSound);
   const activePatternName = useGrooveStore((s) => s.activePatternName);
 
   const res = RESOLUTIONS[resolution] || RESOLUTIONS['1/16'];
@@ -403,6 +405,16 @@ export default function GrooveEditor() {
             style={loopEnabled ? { borderColor: 'var(--color-accent)', color: 'var(--color-accent)' } : undefined}
           >
             <Repeat size={16} /> Loop
+          </button>
+          <button
+            type="button"
+            className="btn h-11"
+            onClick={() => setPreviewSound(!previewSound)}
+            aria-pressed={previewSound}
+            title="Hear the drums through the browser — no MPC needed"
+            style={previewSound ? { borderColor: 'var(--color-accent)', color: 'var(--color-accent)' } : undefined}
+          >
+            {previewSound ? <Volume2 size={16} /> : <VolumeX size={16} />} Sound
           </button>
         </div>
 

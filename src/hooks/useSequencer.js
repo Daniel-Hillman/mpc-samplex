@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { useGrooveStore } from '../store/grooveStore';
 import { useMidiStore } from '../store/midiStore';
 import { sendNote, allNotesOff } from '../lib/midi';
+import { triggerDrum } from '../lib/drumPreview';
 import { clockSender } from '../lib/midiClock';
 import { TICKS_PER_BAR } from '../lib/constants';
 
@@ -26,11 +27,15 @@ export function useSequencer() {
       (time, tick) => {
         const state = useGrooveStore.getState();
         const anySolo = state.rows.some((r) => r.soloed);
+        const preview = state.previewSound;
         state.rows.forEach((row) => {
           const audible = anySolo ? row.soloed : !row.muted;
           if (!audible) return;
           const velocity = row.notes[tick];
-          if (velocity != null) sendNote(row.midiNote, velocity, 60);
+          if (velocity != null) {
+            sendNote(row.midiNote, velocity, 60);
+            if (preview) triggerDrum(row.midiNote, velocity, time);
+          }
         });
         Tone.Draw.schedule(() => {
           useGrooveStore.getState().setCurrentTick(tick);
