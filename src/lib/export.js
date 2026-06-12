@@ -1,5 +1,9 @@
 import MidiWriter from 'midi-writer-js';
 import { midiNoteToName } from './music-theory';
+import { TICKS_PER_BAR } from './constants';
+
+// midi-writer uses 128 ticks per quarter note → 512 per 4/4 bar.
+const MIDI_TICKS_PER_BAR = 512;
 
 // midi-writer-js accepts note names like "C4" or MIDI numbers directly in pitch arrays.
 // We pass names for clarity in the generated file.
@@ -21,8 +25,8 @@ function sanitize(name) {
 }
 
 /**
- * Export the groove grid as a .mid file.
- * 16 steps of 16th notes = 1 bar. Tick base: 128 ticks per quarter → 32 per 16th.
+ * Export the groove as a .mid file. Notes are stored at absolute ticks within
+ * the bar (TICKS_PER_BAR), so straight and triplet hits export at exact times.
  */
 export function exportGrooveAsMidi(rows, bpm, patternName) {
   const track = new MidiWriter.Track();
@@ -35,14 +39,14 @@ export function exportGrooveAsMidi(rows, bpm, patternName) {
   rows.forEach((row) => {
     const audible = anySolo ? row.soloed : !row.muted;
     if (!audible) return;
-    row.steps.forEach((step, i) => {
-      if (!step.active) return;
+    Object.entries(row.notes || {}).forEach(([tickStr, velocity]) => {
+      const tick = Number(tickStr);
       track.addEvent(
         new MidiWriter.NoteEvent({
           pitch: [toPitch(row.midiNote)],
           duration: 'T32',
-          startTick: i * 32,
-          velocity: Math.round((step.velocity / 127) * 100), // midi-writer velocity is 0–100
+          startTick: Math.round((tick / TICKS_PER_BAR) * MIDI_TICKS_PER_BAR),
+          velocity: Math.round((velocity / 127) * 100), // midi-writer velocity is 0–100
           channel: 1,
         })
       );

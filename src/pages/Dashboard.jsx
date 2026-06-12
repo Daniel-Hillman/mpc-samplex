@@ -5,7 +5,7 @@ import { useMidi } from '../hooks/useMidi';
 import { toast } from '../store/toastStore';
 
 const TOOLS = [
-  { to: '/groove', icon: Layers, name: 'Groove editor', desc: '16-step drum sequencer with live MIDI out and swing.' },
+  { to: '/groove', icon: Layers, name: 'Groove editor', desc: 'Drum sequencer with triplets, fine grids, swing and live MIDI.' },
   { to: '/chords', icon: Music, name: 'Chord generator', desc: 'Build voicings, audition them, arrange progressions.' },
   { to: '/scale', icon: Piano, name: 'Scale helper', desc: 'Explore scales and map them onto your 16 pads.' },
   { to: '/mpc', icon: Cpu, name: 'MPC helper', desc: 'Pad maps, channel routing, tempo maths, device debug.' },

@@ -4,47 +4,46 @@ import { useGrooveStore } from '../store/grooveStore';
 import { useMidiStore } from '../store/midiStore';
 import { sendNote, allNotesOff } from '../lib/midi';
 import { clockSender } from '../lib/midiClock';
-import { STEP_COUNT } from '../lib/constants';
+import { TICKS_PER_BAR } from '../lib/constants';
 
 /**
- * Drives the 16-step groove via Tone.Transport. One Tone.Sequence lives for
- * the lifetime of the hook; row/step data is read from the store inside the
- * tick callback so edits apply live without rebuilding the sequence.
+ * Drives the groove from a single fixed-resolution clock: one bar = TICKS_PER_BAR
+ * ticks, and every row's notes are stored at absolute ticks. Because the engine
+ * always runs at the finest tick, straight and triplet grids play from the same
+ * data and switching the on-screen grid never changes what's heard.
  */
 export function useSequencer() {
   const seqRef = useRef(null);
 
   const bpm = useGrooveStore((s) => s.bpm);
   const swing = useGrooveStore((s) => s.swing);
-  const resolution = useGrooveStore((s) => s.resolution);
   const isPlaying = useGrooveStore((s) => s.isPlaying);
 
-  // Build the sequence; rebuilt when resolution changes (subdivision is read-only on Tone.Sequence)
+  // Build the tick sequence once — it never needs rebuilding for resolution
+  // changes now, since resolution is purely a view concern.
   useEffect(() => {
     const seq = new Tone.Sequence(
-      (time, step) => {
+      (time, tick) => {
         const state = useGrooveStore.getState();
         const anySolo = state.rows.some((r) => r.soloed);
         state.rows.forEach((row) => {
           const audible = anySolo ? row.soloed : !row.muted;
           if (!audible) return;
-          const cell = row.steps[step];
-          if (cell && cell.active) {
-            sendNote(row.midiNote, cell.velocity, 60);
-          }
+          const velocity = row.notes[tick];
+          if (velocity != null) sendNote(row.midiNote, velocity, 60);
         });
         Tone.Draw.schedule(() => {
-          useGrooveStore.getState().setCurrentStep(step);
+          useGrooveStore.getState().setCurrentTick(tick);
         }, time);
-        // One-shot mode: stop after the last step
-        if (!state.loopEnabled && step === STEP_COUNT - 1) {
+        // One-shot mode: stop after the final tick of the bar
+        if (!state.loopEnabled && tick === TICKS_PER_BAR - 1) {
           Tone.Transport.scheduleOnce(() => {
             useGrooveStore.getState().setIsPlaying(false);
-          }, `+${Tone.Time(state.resolution === '1/8' ? '8n' : '16n').toSeconds() * 0.9}`);
+          }, `+${Tone.Time('96n').toSeconds() * 0.9}`);
         }
       },
-      [...Array(STEP_COUNT).keys()],
-      resolution === '1/8' ? '8n' : '16n'
+      [...Array(TICKS_PER_BAR).keys()],
+      '96n' // 96 subdivisions per bar
     );
     seq.start(0);
     seqRef.current = seq;
@@ -52,14 +51,14 @@ export function useSequencer() {
       seq.dispose();
       seqRef.current = null;
     };
-  }, [resolution]);
+  }, []);
 
   // Sync BPM
   useEffect(() => {
     Tone.Transport.bpm.value = bpm;
   }, [bpm]);
 
-  // Sync swing — Tone applies it to every other subdivision
+  // Sync swing — applied to the 16th-note feel (straight grooves)
   useEffect(() => {
     Tone.Transport.swing = swing / 100;
     Tone.Transport.swingSubdivision = '16n';
@@ -88,12 +87,12 @@ export function useSequencer() {
   const stop = useCallback(() => {
     const store = useGrooveStore.getState();
     store.setIsPlaying(false);
-    store.setCurrentStep(-1);
+    store.setCurrentTick(-1);
   }, []);
 
   const reset = useCallback(() => {
     Tone.Transport.position = 0;
-    useGrooveStore.getState().setCurrentStep(-1);
+    useGrooveStore.getState().setCurrentTick(-1);
   }, []);
 
   return { play, stop, reset };

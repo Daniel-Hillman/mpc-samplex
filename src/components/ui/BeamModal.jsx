@@ -13,24 +13,27 @@ import { toast } from '../../store/toastStore';
 export default function BeamModal({ open, onClose, isPlaying, play, stop }) {
   const clockMode = useMidiStore((s) => s.clockMode);
   const hasOutput = useMidiStore((s) => Boolean(s.selectedOutputId) && s.status === 'enabled');
-  const currentStep = useGrooveStore((s) => s.currentStep);
+  const currentTick = useGrooveStore((s) => s.currentTick);
   const loopEnabled = useGrooveStore((s) => s.loopEnabled);
   const toggleLoop = useGrooveStore((s) => s.toggleLoop);
 
   const [loops, setLoops] = useState(0);
-  const prevStep = useRef(-1);
+  const prevTick = useRef(-1);
 
-  // Count completed loops while streaming
+  // Count completed loops while streaming: the tick counter wrapping back toward
+  // the start of the bar means one full pass just finished.
   useEffect(() => {
     if (!open) return;
-    if (prevStep.current === 15 && currentStep === 0) setLoops((n) => n + 1);
-    prevStep.current = currentStep;
-  }, [currentStep, open]);
+    if (prevTick.current >= 0 && currentTick >= 0 && currentTick < prevTick.current) {
+      setLoops((n) => n + 1);
+    }
+    prevTick.current = currentTick;
+  }, [currentTick, open]);
 
   useEffect(() => {
     if (!open) {
       setLoops(0);
-      prevStep.current = -1;
+      prevTick.current = -1;
     }
   }, [open]);
 

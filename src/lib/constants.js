@@ -38,6 +38,20 @@ export const DEFAULT_VELOCITY = 100;
 export const MIN_BPM = 40;
 export const MAX_BPM = 240;
 
+// One bar = 96 ticks. 96 is divisible by every grid below, so a note placed in
+// any resolution keeps an exact integer tick — switching the grid never moves or
+// drops a hit. (96/16=6, 96/32=3, 96/12=8 for 1/8 triplets, 96/24=4 for 1/16T.)
+export const TICKS_PER_BAR = 96;
+
+export const RESOLUTIONS = {
+  '1/8':   { label: '1/8',   steps: 8,  stepTicks: 12, triplet: false },
+  '1/16':  { label: '1/16',  steps: 16, stepTicks: 6,  triplet: false },
+  '1/32':  { label: '1/32',  steps: 32, stepTicks: 3,  triplet: false },
+  '1/8T':  { label: '1/8T',  steps: 12, stepTicks: 8,  triplet: true },
+  '1/16T': { label: '1/16T', steps: 24, stepTicks: 4,  triplet: true },
+};
+export const RESOLUTION_ORDER = ['1/8', '1/16', '1/32', '1/8T', '1/16T'];
+
 export const ROOT_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 // localStorage keys
@@ -67,9 +81,20 @@ export function makeDefaultRows() {
     midiNote: overrides?.[idx]?.midiNote ?? p.midiNote,
     muted: false,
     soloed: false,
-    steps: Array.from({ length: STEP_COUNT }, () => ({
-      active: false,
-      velocity,
-    })),
+    // Sparse note map: { [tickWithinBar]: velocity }. Empty = no hits.
+    notes: {},
   }));
+}
+
+// Migrate a legacy row (fixed 16-step array, 1/16 grid) to the tick model.
+export function migrateRow(row) {
+  if (row.notes && !row.steps) return row;
+  const notes = {};
+  if (Array.isArray(row.steps)) {
+    row.steps.forEach((st, i) => {
+      if (st?.active) notes[i * 6] = st.velocity ?? DEFAULT_VELOCITY; // old step = 1/16 = 6 ticks
+    });
+  }
+  const { steps, ...rest } = row;
+  return { ...rest, notes };
 }

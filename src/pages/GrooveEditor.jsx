@@ -1,27 +1,30 @@
 import { useState, useCallback } from 'react';
-import { Play, Square, RotateCcw, Save, Copy, Trash2, Download, Repeat, Cast } from 'lucide-react';
+import { Play, Square, RotateCcw, Save, Copy, Trash2, Download, Repeat, Cast, HelpCircle } from 'lucide-react';
 import { useGrooveStore } from '../store/grooveStore';
 import { useSequencer } from '../hooks/useSequencer';
 import { useMidi } from '../hooks/useMidi';
 import { exportGrooveAsMidi } from '../lib/export';
 import { midiNoteToName } from '../lib/music-theory';
+import { RESOLUTIONS, RESOLUTION_ORDER, TICKS_PER_BAR, DEFAULT_VELOCITY } from '../lib/constants';
 import { toast } from '../store/toastStore';
-import StepCell from '../components/ui/StepCell';
 import VelocitySlider from '../components/ui/VelocitySlider';
 import Knob from '../components/ui/Knob';
 import BeamModal from '../components/ui/BeamModal';
+
+const LABEL_W = 240;
 
 function RowControls({ row }) {
   const setRowLabel = useGrooveStore((s) => s.setRowLabel);
   const setRowNote = useGrooveStore((s) => s.setRowNote);
   const toggleMute = useGrooveStore((s) => s.toggleMute);
   const toggleSolo = useGrooveStore((s) => s.toggleSolo);
+  const clearRow = useGrooveStore((s) => s.clearRow);
   const { sendNote } = useMidi();
 
   return (
-    <div className="flex w-[252px] shrink-0 items-center gap-1.5 pr-2">
+    <div className="flex shrink-0 items-center gap-1.5 pr-3" style={{ width: LABEL_W }}>
       <input
-        className="input h-9 w-[88px] px-2 text-xs"
+        className="input h-9 w-[84px] px-2 text-xs"
         value={row.label}
         onChange={(e) => setRowLabel(row.id, e.target.value)}
         aria-label="Row label"
@@ -29,7 +32,7 @@ function RowControls({ row }) {
       <div className="flex items-center">
         <input
           type="number"
-          className="input h-9 w-[52px] rounded-r-none px-1.5 text-center text-xs"
+          className="input h-9 w-[48px] rounded-r-none px-1.5 text-center text-xs"
           value={row.midiNote}
           min={0}
           max={127}
@@ -44,7 +47,7 @@ function RowControls({ row }) {
           className="flex h-9 items-center rounded-r border border-l-0 px-1.5 font-mono text-[10px] text-text-secondary hover:text-text-primary"
           style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}
           title="Preview note"
-          onClick={() => sendNote(row.midiNote, 100, 120)}
+          onClick={() => sendNote(row.midiNote, 110, 120)}
         >
           {midiNoteToName(row.midiNote)}
         </button>
@@ -54,7 +57,7 @@ function RowControls({ row }) {
         onClick={() => toggleMute(row.id)}
         aria-pressed={row.muted}
         aria-label={`Mute ${row.label}`}
-        className="h-7 w-7 rounded-full font-mono text-xs font-bold transition-colors"
+        className="h-7 w-7 rounded font-mono text-xs font-bold transition-colors"
         style={{
           background: row.muted ? 'var(--color-danger)' : 'var(--color-surface-2)',
           color: row.muted ? '#0a0a0c' : 'var(--color-text-secondary)',
@@ -68,7 +71,7 @@ function RowControls({ row }) {
         onClick={() => toggleSolo(row.id)}
         aria-pressed={row.soloed}
         aria-label={`Solo ${row.label}`}
-        className="h-7 w-7 rounded-full font-mono text-xs font-bold transition-colors"
+        className="h-7 w-7 rounded font-mono text-xs font-bold transition-colors"
         style={{
           background: row.soloed ? 'var(--color-success)' : 'var(--color-surface-2)',
           color: row.soloed ? '#0a0a0c' : 'var(--color-text-secondary)',
@@ -77,6 +80,192 @@ function RowControls({ row }) {
       >
         S
       </button>
+      <button
+        type="button"
+        onClick={() => clearRow(row.id)}
+        aria-label={`Clear ${row.label}`}
+        title="Clear this row"
+        className="flex h-7 w-7 items-center justify-center rounded text-text-muted transition-colors hover:text-danger"
+        style={{ background: 'var(--color-surface-2)', border: '1px solid var(--color-border)' }}
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  );
+}
+
+/** One row's note lane: proportional cells over a constant-width bar. */
+function GridRow({ row, res, onVelocityRequest }) {
+  const toggleNote = useGrooveStore((s) => s.toggleNote);
+  const removeNote = useGrooveStore((s) => s.removeNote);
+  const currentTick = useGrooveStore((s) => s.currentTick);
+  const isPlaying = useGrooveStore((s) => s.isPlaying);
+  const { steps, stepTicks } = res;
+  const stepsPerBeat = steps / 4;
+  const playCol = isPlaying && currentTick >= 0 ? Math.floor(currentTick / stepTicks) : -1;
+
+  // notes that don't sit on the current grid (e.g. triplets while viewing straight)
+  const offGrid = Object.keys(row.notes)
+    .map(Number)
+    .filter((t) => t % stepTicks !== 0);
+
+  return (
+    <div className="relative" style={{ height: 38 }}>
+      {/* beat dividers — always at the 4 quarter-note boundaries, so triplet and
+          straight grids share the same anchors */}
+      {[1, 2, 3].map((b) => (
+        <div
+          key={b}
+          className="pointer-events-none absolute top-0 bottom-0 w-px"
+          style={{ left: `${b * 25}%`, background: 'var(--color-border-bright)' }}
+        />
+      ))}
+
+      {/* clickable cells */}
+      {Array.from({ length: steps }, (_, c) => {
+        const tick = c * stepTicks;
+        const vel = row.notes[tick];
+        const active = vel != null;
+        const beatStart = c % stepsPerBeat === 0;
+        const intensity = active ? 0.32 + (vel / 127) * 0.68 : 0;
+        const isPlayhead = playCol === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            aria-label={`${row.label} tick ${tick} ${active ? `on, velocity ${vel}` : 'off'}`}
+            aria-pressed={active}
+            onClick={() => toggleNote(row.id, tick, DEFAULT_VELOCITY)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (active) onVelocityRequest({ rowId: row.id, tick, x: e.clientX, y: e.clientY });
+            }}
+            className="absolute top-0 bottom-0"
+            style={{ left: `${(c / steps) * 100}%`, width: `${(1 / steps) * 100}%`, padding: '3px 1.5px' }}
+          >
+            <span
+              className={`block h-full w-full rounded-[3px] ${active ? 'pad-glow' : ''}`}
+              style={{
+                background: active
+                  ? `rgba(255, 107, 0, ${intensity})`
+                  : beatStart
+                    ? 'var(--color-surface-2)'
+                    : 'var(--color-surface)',
+                border: `1px solid ${
+                  isPlayhead ? 'var(--color-playhead)' : active ? 'var(--color-accent)' : 'var(--color-border)'
+                }`,
+                boxShadow: isPlayhead ? '0 0 8px var(--color-playhead-glow)' : undefined,
+              }}
+            />
+          </button>
+        );
+      })}
+
+      {/* off-grid notes — kept exactly where they were, shown as slim markers */}
+      {offGrid.map((t) => (
+        <button
+          key={`og-${t}`}
+          type="button"
+          title="Off-grid hit (kept in place). Switch to a matching grid to edit, or click to remove."
+          aria-label={`Off-grid hit at tick ${t} — click to remove`}
+          onClick={() => removeNote(row.id, t)}
+          className="absolute top-1 bottom-1 z-10 w-[6px] -translate-x-1/2 rounded-sm"
+          style={{
+            left: `${(t / TICKS_PER_BAR) * 100}%`,
+            background: 'var(--color-playhead)',
+            boxShadow: '0 0 8px var(--color-playhead-glow)',
+            opacity: 0.85,
+          }}
+        />
+      ))}
+
+      {/* playhead line */}
+      {playCol >= 0 && (
+        <div
+          className="pointer-events-none absolute top-0 bottom-0 z-20 w-px"
+          style={{
+            left: `${(currentTick / TICKS_PER_BAR) * 100}%`,
+            background: 'var(--color-playhead)',
+            opacity: 0.5,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BeatRuler({ res }) {
+  const { steps } = res;
+  return (
+    <div className="flex items-end" style={{ height: 22 }}>
+      <div className="shrink-0" style={{ width: LABEL_W }} />
+      <div className="relative flex-1">
+        {[0, 1, 2, 3].map((b) => (
+          <span
+            key={b}
+            className="absolute bottom-0 font-mono text-[10px] font-bold"
+            style={{ left: `${b * 25}%`, color: 'var(--color-text-secondary)', transform: 'translateX(2px)' }}
+          >
+            {b + 1}
+          </span>
+        ))}
+        {/* faint tick marks for each cell so subdivisions are visible */}
+        {Array.from({ length: steps }, (_, c) => (
+          <span
+            key={c}
+            className="absolute bottom-0 w-px"
+            style={{
+              left: `${(c / steps) * 100}%`,
+              height: c % (steps / 4) === 0 ? 8 : 4,
+              background: 'var(--color-border)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResolutionPicker() {
+  const resolution = useGrooveStore((s) => s.resolution);
+  const setResolution = useGrooveStore((s) => s.setResolution);
+
+  const Group = ({ keys }) => (
+    <div className="flex">
+      {keys.map((k, i) => (
+        <button
+          key={k}
+          type="button"
+          onClick={() => setResolution(k)}
+          aria-pressed={resolution === k}
+          className={`h-9 px-3 font-mono text-xs ${i === 0 ? 'rounded-l' : ''} ${
+            i === keys.length - 1 ? 'rounded-r' : ''
+          }`}
+          style={{
+            background: resolution === k ? 'var(--color-accent)' : 'var(--color-surface-2)',
+            color: resolution === k ? '#0a0a0c' : 'var(--color-text-secondary)',
+            border: '1px solid var(--color-border)',
+            marginLeft: i === 0 ? 0 : -1,
+            fontWeight: resolution === k ? 700 : 400,
+          }}
+        >
+          {RESOLUTIONS[k].label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const straight = RESOLUTION_ORDER.filter((k) => !RESOLUTIONS[k].triplet);
+  const triplet = RESOLUTION_ORDER.filter((k) => RESOLUTIONS[k].triplet);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="panel-title">Grid</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Group keys={straight} />
+        <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">triplets</span>
+        <Group keys={triplet} />
+      </div>
     </div>
   );
 }
@@ -134,7 +323,7 @@ function PatternManager() {
         className="btn btn-danger-outline"
         onClick={() => {
           clearPattern();
-          toast.info('Grid cleared');
+          toast.info('All hits cleared');
         }}
       >
         <Trash2 size={14} /> Clear
@@ -149,27 +338,26 @@ export default function GrooveEditor() {
   const swing = useGrooveStore((s) => s.swing);
   const setSwing = useGrooveStore((s) => s.setSwing);
   const isPlaying = useGrooveStore((s) => s.isPlaying);
-  const currentStep = useGrooveStore((s) => s.currentStep);
   const resolution = useGrooveStore((s) => s.resolution);
-  const setResolution = useGrooveStore((s) => s.setResolution);
   const loopEnabled = useGrooveStore((s) => s.loopEnabled);
   const toggleLoop = useGrooveStore((s) => s.toggleLoop);
-  const toggleStep = useGrooveStore((s) => s.toggleStep);
-  const setStepVelocity = useGrooveStore((s) => s.setStepVelocity);
   const activePatternName = useGrooveStore((s) => s.activePatternName);
 
+  const res = RESOLUTIONS[resolution] || RESOLUTIONS['1/16'];
+
   const { play, stop, reset } = useSequencer();
-  const [velocityPopup, setVelocityPopup] = useState(null); // { rowId, stepIdx, x, y }
+  const [velocityPopup, setVelocityPopup] = useState(null); // { rowId, tick, x, y }
   const [beamOpen, setBeamOpen] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const onExport = useCallback(() => {
     const ok = exportGrooveAsMidi(rows, bpm, activePatternName || 'untitled');
     if (ok) toast.success('Exported .mid file');
-    else toast.warning('Nothing to export — add some steps first');
+    else toast.warning('Nothing to export — add some hits first');
   }, [rows, bpm, activePatternName]);
 
   const popupRow = velocityPopup && rows.find((r) => r.id === velocityPopup.rowId);
-  const popupVelocity = popupRow ? popupRow.steps[velocityPopup.stepIdx].velocity : 100;
+  const popupVelocity = popupRow ? popupRow.notes[velocityPopup.tick] ?? DEFAULT_VELOCITY : DEFAULT_VELOCITY;
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6">
@@ -178,7 +366,8 @@ export default function GrooveEditor() {
         <div>
           <h1 className="font-mono text-xl font-bold tracking-tight">Groove editor</h1>
           <p className="mt-0.5 text-sm text-text-secondary">
-            {activePatternName ? `Pattern: ${activePatternName}` : 'Unsaved pattern'} · 16 steps · {bpm} BPM
+            {activePatternName ? `Pattern: ${activePatternName}` : 'Unsaved pattern'} · 1 bar · {res.label} grid ·{' '}
+            {bpm} BPM
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -211,11 +400,7 @@ export default function GrooveEditor() {
             onClick={toggleLoop}
             aria-pressed={loopEnabled}
             aria-label="Toggle loop"
-            style={
-              loopEnabled
-                ? { borderColor: 'var(--color-accent)', color: 'var(--color-accent)' }
-                : undefined
-            }
+            style={loopEnabled ? { borderColor: 'var(--color-accent)', color: 'var(--color-accent)' } : undefined}
           >
             <Repeat size={16} /> Loop
           </button>
@@ -223,28 +408,7 @@ export default function GrooveEditor() {
 
         <Knob label="Swing" value={swing} min={0} max={100} unit="%" onChange={setSwing} defaultValue={0} />
 
-        <div className="flex flex-col gap-1.5">
-          <span className="panel-title">Resolution</span>
-          <div className="flex">
-            {['1/16', '1/8'].map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => setResolution(r)}
-                aria-pressed={resolution === r}
-                className="px-3 py-1.5 font-mono text-xs first:rounded-l last:rounded-r"
-                style={{
-                  background: resolution === r ? 'var(--color-accent)' : 'var(--color-surface-2)',
-                  color: resolution === r ? '#0a0a0c' : 'var(--color-text-secondary)',
-                  border: '1px solid var(--color-border)',
-                  fontWeight: resolution === r ? 700 : 400,
-                }}
-              >
-                {r}
-              </button>
-            ))}
-          </div>
-        </div>
+        <ResolutionPicker />
 
         <div className="ml-0 w-full xl:ml-auto xl:w-auto">
           <PatternManager />
@@ -252,60 +416,47 @@ export default function GrooveEditor() {
       </div>
 
       {/* Step grid */}
-      <div className="panel overflow-x-auto p-4">
-        {/* Beat numbers */}
-        <div className="mb-2 flex">
-          <div className="w-[252px] shrink-0" />
-          <div className="flex gap-[3px]">
-            {Array.from({ length: 16 }, (_, i) => (
-              <div
-                key={i}
-                className="flex h-5 w-9 items-center justify-center font-mono text-[10px]"
-                style={{
-                  color:
-                    currentStep === i
-                      ? 'var(--color-playhead)'
-                      : i % 4 === 0
-                        ? 'var(--color-text-secondary)'
-                        : 'var(--color-text-muted)',
-                  fontWeight: currentStep === i ? 700 : 400,
-                }}
-              >
-                {i + 1}
-              </div>
-            ))}
+      <div className="panel p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="panel-title">Pattern · {res.label}</span>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 font-mono text-[11px] text-text-muted hover:text-text-secondary"
+            onClick={() => setShowHelp((v) => !v)}
+            aria-expanded={showHelp}
+          >
+            <HelpCircle size={13} /> How it works
+          </button>
+        </div>
+
+        {showHelp && (
+          <div
+            className="mb-3 rounded-md border p-3 font-mono text-[11px] leading-relaxed text-text-secondary"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-2)' }}
+          >
+            <b className="text-text-primary">Click</b> a cell to place a hit ·{' '}
+            <b className="text-text-primary">right-click</b> a hit for velocity · the four numbered{' '}
+            <b className="text-text-primary">beats</b> stay fixed so you can see how triplets divide the bar. Switching the{' '}
+            <b className="text-text-primary">Grid</b> never moves your hits — any that don't line up with the new grid show as{' '}
+            <span style={{ color: 'var(--color-playhead)' }}>yellow markers</span> you can click to remove.
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <div className="min-w-[560px]">
+            <BeatRuler res={res} />
+            <div className="mt-1 flex flex-col gap-[5px]">
+              {rows.map((row) => (
+                <div key={row.id} className="flex items-center">
+                  <RowControls row={row} />
+                  <div className="flex-1">
+                    <GridRow row={row} res={res} onVelocityRequest={setVelocityPopup} />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-
-        {/* Rows */}
-        <div className="flex flex-col gap-[3px]">
-          {rows.map((row) => (
-            <div key={row.id} className="flex items-center">
-              <RowControls row={row} />
-              <div className="flex gap-[3px]">
-                {row.steps.map((step, i) => (
-                  <StepCell
-                    key={i}
-                    active={step.active}
-                    velocity={step.velocity}
-                    isPlayhead={currentStep === i && isPlaying}
-                    isDownbeat={i % 4 === 0}
-                    rowLabel={row.label}
-                    stepIdx={i}
-                    onToggle={() => toggleStep(row.id, i)}
-                    onVelocityRequest={(e) =>
-                      setVelocityPopup({ rowId: row.id, stepIdx: i, x: e.clientX, y: e.clientY })
-                    }
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <p className="mt-3 font-mono text-[11px] text-text-muted">
-          Click to toggle · right-click for velocity · M mutes · S solos
-        </p>
       </div>
 
       {velocityPopup && (
@@ -313,7 +464,7 @@ export default function GrooveEditor() {
           x={velocityPopup.x}
           y={velocityPopup.y}
           velocity={popupVelocity}
-          onChange={(v) => setStepVelocity(velocityPopup.rowId, velocityPopup.stepIdx, v)}
+          onChange={(v) => useGrooveStore.getState().setNoteVelocity(velocityPopup.rowId, velocityPopup.tick, v)}
           onClose={() => setVelocityPopup(null)}
         />
       )}
