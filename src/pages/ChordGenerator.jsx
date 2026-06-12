@@ -45,6 +45,8 @@ const BLACK_KEYS = [
   { pc: 10, left: 79.5 },
 ];
 
+// Same 3-state code as the Scale keyboard: chord tones glow orange, everything
+// else recedes into the panel so the chord shape reads instantly.
 function MiniPiano({ notes }) {
   const pcs = new Set(notes.map((n) => ((n % 12) + 12) % 12));
   return (
@@ -55,7 +57,7 @@ function MiniPiano({ notes }) {
             key={pc}
             className="h-full w-[14px] rounded-b-sm border"
             style={{
-              background: pcs.has(pc) ? 'var(--color-accent)' : '#E8E8EC',
+              background: pcs.has(pc) ? 'var(--color-accent)' : 'var(--key-off)',
               borderColor: 'var(--color-bg)',
               boxShadow: pcs.has(pc) ? '0 0 10px var(--color-accent-glow)' : undefined,
             }}
@@ -68,7 +70,7 @@ function MiniPiano({ notes }) {
           className="absolute top-0 h-[58%] w-[9px] rounded-b-sm"
           style={{
             left,
-            background: pcs.has(pc) ? 'var(--color-accent)' : '#1C1C21',
+            background: pcs.has(pc) ? 'var(--color-accent)' : 'var(--key-off-black)',
             border: '1px solid var(--color-bg)',
             boxShadow: pcs.has(pc) ? '0 0 10px var(--color-accent-glow)' : undefined,
           }}
@@ -133,7 +135,7 @@ function ChordBuilder() {
 
   return (
     <section className="panel p-5">
-      <h2 className="panel-title mb-4">Chord builder</h2>
+      <h2 className="panel-title section-head mb-4">Chord builder</h2>
 
       {/* Root selector */}
       <div className="mb-4">
@@ -279,7 +281,7 @@ function InKeyPalette() {
   return (
     <section className="panel p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="panel-title">Chords in key</h2>
+        <h2 className="panel-title section-head">Chords in key</h2>
         <div className="flex flex-wrap items-center gap-2">
           <select className="select" value={scaleRoot} onChange={(e) => setScaleRoot(e.target.value)} aria-label="Key root">
             {ROOTS.map((r) => (
@@ -423,7 +425,7 @@ function ProgressionBuilder() {
   return (
     <section className="panel p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="panel-title">Progression</h2>
+        <h2 className="panel-title section-head">Progression</h2>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -739,7 +741,7 @@ function ChordReference() {
 
   return (
     <section className="panel p-5">
-      <h2 className="panel-title mb-4">Chord reference</h2>
+      <h2 className="panel-title section-head mb-4">Chord reference</h2>
       <div className="flex flex-wrap items-start gap-8">
         <div>
           <div className="mb-2 font-mono text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>

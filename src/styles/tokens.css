@@ -1,22 +1,31 @@
 :root {
-  /* Colour tokens */
+  /* Colour tokens — layered dark palette, each step a clear notch lighter */
   --color-bg:            #0A0A0C;
-  --color-surface:       #131316;
-  --color-surface-2:     #1C1C21;
-  --color-border:        #2C2C33;
-  --color-border-bright: #3F3F4A;
+  --color-surface:       #17171C;  /* panels — lifted off the bg so they read as cards */
+  --color-surface-2:     #222229;  /* inset controls, hover targets */
+  --color-surface-3:     #2D2D36;  /* nested rows, raised chips */
+  --color-border:        #34343E;  /* visible at a glance, not just on hover */
+  --color-border-bright: #4D4D5A;
   --color-accent:        #FF6B00;
   --color-accent-dim:    #99400A;
-  --color-accent-glow:   rgba(255, 107, 0, 0.25);
+  --color-accent-soft:   rgba(255, 107, 0, 0.14); /* tinted fills */
+  --color-accent-glow:   rgba(255, 107, 0, 0.28);
   --color-playhead:      #FFD60A;
-  --color-playhead-glow: rgba(255, 214, 10, 0.15);
+  --color-playhead-glow: rgba(255, 214, 10, 0.18);
   --color-success:       #30D158;
-  --color-danger:        #FF3B30;
+  --color-danger:        #FF453A;
   --color-info:          #0A84FF;
-  --color-warning:       #FF9F0A;
-  --color-text-primary:  #EFEFEF;
-  --color-text-secondary:#8E8E9A;
-  --color-text-muted:    #4A4A55;
+  --color-warning:       #FFB020;
+  --color-text-primary:  #F4F4F6;
+  --color-text-secondary:#A2A2AF;  /* readable body/secondary text */
+  --color-text-muted:    #70707E;  /* hints stay legible instead of vanishing */
+
+  /* Keyboard / pad note states (shared by Scale + Chord views) */
+  --key-on:        #ECEDF2;  /* note is in the scale (white key) */
+  --key-on-black:  #C9CAD4;  /* note is in the scale (black key) */
+  --key-off:       #26262E;  /* not in scale — recedes into the panel */
+  --key-off-black: #141418;
+  --key-ink:       #14141A;  /* dark label printed on a lit key */
 
   /* Typography */
   --font-mono: 'JetBrains Mono', monospace;

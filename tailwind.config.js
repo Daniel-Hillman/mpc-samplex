@@ -7,6 +7,7 @@ export default {
         bg: 'var(--color-bg)',
         surface: 'var(--color-surface)',
         'surface-2': 'var(--color-surface-2)',
+        'surface-3': 'var(--color-surface-3)',
         border: 'var(--color-border)',
         'border-bright': 'var(--color-border-bright)',
         accent: 'var(--color-accent)',

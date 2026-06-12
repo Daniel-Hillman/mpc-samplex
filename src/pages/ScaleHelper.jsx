@@ -20,8 +20,13 @@ import PadButton from '../components/ui/PadButton';
 const WHITE_PCS = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_PC_LEFT = { 1: 18, 3: 46, 6: 102, 8: 130, 10: 158 };
 
+/**
+ * Piano keyboard with a strict 3-state colour code so scale membership reads
+ * at a glance: ORANGE = root, LIT (light) = in scale, DARK = not in scale.
+ * Key colour is driven only by membership — not by white/black realism — so
+ * there's no grey ambiguity. Shape/position still distinguishes black vs white.
+ */
 function PianoRoll({ scalePcs, rootPc }) {
-  // Two octaves: 14 white keys, 28px each
   const octaves = [0, 1];
   return (
     <div className="relative h-32" style={{ width: 14 * 28 }}>
@@ -35,14 +40,18 @@ function PianoRoll({ scalePcs, rootPc }) {
                 key={`${o}-${pc}`}
                 className="flex h-full w-[28px] items-end justify-center rounded-b border pb-1.5"
                 style={{
-                  background: isRoot && inScale ? 'var(--color-accent)' : inScale ? '#E8E8EC' : '#3A3A42',
+                  background: isRoot ? 'var(--color-accent)' : inScale ? 'var(--key-on)' : 'var(--key-off)',
                   borderColor: 'var(--color-bg)',
-                  boxShadow: isRoot && inScale ? '0 0 12px var(--color-accent-glow)' : undefined,
+                  boxShadow: isRoot ? '0 0 14px var(--color-accent-glow)' : undefined,
                 }}
               >
                 <span
-                  className="font-mono text-[9px] font-bold"
-                  style={{ color: isRoot && inScale ? '#0a0a0c' : inScale ? '#131316' : '#6A6A75' }}
+                  className="font-mono text-[10px]"
+                  style={{
+                    color: isRoot || inScale ? 'var(--key-ink)' : 'var(--color-text-muted)',
+                    fontWeight: isRoot || inScale ? 700 : 400,
+                    opacity: isRoot || inScale ? 1 : 0.7,
+                  }}
                 >
                   {NOTE_NAMES[pc]}
                 </span>
@@ -62,18 +71,45 @@ function PianoRoll({ scalePcs, rootPc }) {
               className="absolute top-0 flex h-[60%] w-[18px] items-end justify-center rounded-b pb-1"
               style={{
                 left: left + o * 196,
-                background: isRoot && inScale ? 'var(--color-accent)' : inScale ? '#8E8E9A' : '#101013',
+                background: isRoot ? 'var(--color-accent)' : inScale ? 'var(--key-on-black)' : 'var(--key-off-black)',
                 border: '1px solid var(--color-bg)',
-                boxShadow: isRoot && inScale ? '0 0 12px var(--color-accent-glow)' : undefined,
+                boxShadow: isRoot ? '0 0 14px var(--color-accent-glow)' : undefined,
               }}
             >
-              <span className="font-mono text-[8px] font-bold" style={{ color: inScale ? '#0a0a0c' : '#3F3F4A' }}>
-                {NOTE_NAMES[pc].replace('#', '♯')}
-              </span>
+              {(isRoot || inScale) && (
+                <span className="font-mono text-[9px] font-bold" style={{ color: 'var(--key-ink)' }}>
+                  {NOTE_NAMES[pc].replace('#', '♯')}
+                </span>
+              )}
             </div>
           );
         })
       )}
+    </div>
+  );
+}
+
+function KeyLegend() {
+  const items = [
+    { label: 'Root', bg: 'var(--color-accent)', glow: true },
+    { label: 'In scale', bg: 'var(--key-on)' },
+    { label: 'Not in scale', bg: 'var(--key-off)' },
+  ];
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      {items.map((it) => (
+        <span key={it.label} className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
+          <span
+            className="h-3 w-3 rounded-sm"
+            style={{
+              background: it.bg,
+              border: '1px solid var(--color-border)',
+              boxShadow: it.glow ? '0 0 8px var(--color-accent-glow)' : undefined,
+            }}
+          />
+          {it.label}
+        </span>
+      ))}
     </div>
   );
 }
@@ -121,7 +157,7 @@ export default function ScaleHelper() {
 
       {/* Explorer controls */}
       <section className="panel p-5">
-        <h2 className="panel-title mb-4">Scale explorer</h2>
+        <h2 className="panel-title section-head mb-4">Scale explorer</h2>
         <div className="mb-4 flex flex-wrap items-end gap-5">
           <div>
             <span className="mb-1.5 block font-mono text-xs text-text-muted">Root</span>
@@ -172,11 +208,14 @@ export default function ScaleHelper() {
         </div>
 
         <div className="flex flex-wrap items-start gap-10">
-          <div className="max-w-full overflow-x-auto pb-1">
-            <PianoRoll scalePcs={scalePcs} rootPc={rootPc} />
+          <div className="flex flex-col gap-3">
+            <div className="max-w-full overflow-x-auto pb-1">
+              <PianoRoll scalePcs={scalePcs} rootPc={rootPc} />
+            </div>
+            <KeyLegend />
           </div>
           <div>
-            <div className="mb-1 font-mono text-xs uppercase tracking-wider text-text-muted">Notes</div>
+            <div className="mb-1 font-mono text-xs uppercase tracking-wider text-text-secondary">Notes</div>
             <div className="mb-3 flex gap-1.5">
               {scalePcs.map((pc, i) => (
                 <span
@@ -192,7 +231,7 @@ export default function ScaleHelper() {
                 </span>
               ))}
             </div>
-            <div className="mb-1 font-mono text-xs uppercase tracking-wider text-text-muted">Intervals</div>
+            <div className="mb-1 font-mono text-xs uppercase tracking-wider text-text-secondary">Intervals</div>
             <div className="flex gap-1.5">
               {intervalNames.map((iv, i) => (
                 <span key={i} className="rounded px-2 py-1 font-mono text-xs text-text-secondary" style={{ border: '1px solid var(--color-border)' }}>
@@ -206,7 +245,7 @@ export default function ScaleHelper() {
         {/* Diatonic chords */}
         {chordsInKey.length > 0 && (
           <div className="mt-5">
-            <div className="mb-2 font-mono text-xs uppercase tracking-wider text-text-muted">Chords in key</div>
+            <div className="mb-2 font-mono text-xs uppercase tracking-wider text-text-secondary">Chords in key</div>
             <div className="flex flex-wrap gap-1.5">
               {chordsInKey.map((c) => (
                 <button
@@ -232,7 +271,7 @@ export default function ScaleHelper() {
         {/* Pad mapper */}
         <section className="panel p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="panel-title">MPC pad mapper</h2>
+            <h2 className="panel-title section-head">MPC pad mapper</h2>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -282,7 +321,7 @@ export default function ScaleHelper() {
 
         {/* Relative key + modes */}
         <section className="panel p-5">
-          <h2 className="panel-title mb-4">Relative key finder</h2>
+          <h2 className="panel-title section-head mb-4">Relative key finder</h2>
           {relative ? (
             <button
               type="button"
@@ -294,7 +333,7 @@ export default function ScaleHelper() {
                 toast.info(`Switched to ${relative.rootName} ${SCALE_LABELS[relative.scaleName]}`);
               }}
             >
-              <span className="font-mono text-xs uppercase tracking-wider text-text-muted">{relative.label}</span>
+              <span className="font-mono text-xs uppercase tracking-wider text-text-secondary">{relative.label}</span>
               <span className="font-mono text-lg font-bold" style={{ color: 'var(--color-accent)' }}>
                 {relative.rootName} {SCALE_LABELS[relative.scaleName]}
               </span>
