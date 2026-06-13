@@ -25,4 +25,15 @@ describe('MPC Studio shell', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Remove /i })[0])
     expect(screen.getAllByRole('button', { name: /Remove /i })).toHaveLength(3)
   })
+
+  it('shows MPC connection confirmation and test runs in the bridge', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Bridge' }))
+
+    expect(screen.getByText('MPC confirmation')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Test note' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Pad walk 1-16/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /MPC responded/i })).toBeDisabled()
+  })
 })

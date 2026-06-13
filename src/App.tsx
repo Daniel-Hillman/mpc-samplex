@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Cable,
+  CheckCircle2,
   Download,
   Info,
   Library,
@@ -50,6 +52,8 @@ import {
 import type { ChordQualityId, ChordShape, ChordStep, MidiOutputDevice, PadNumber, Pattern, StudioProject } from './types'
 
 type ViewId = 'studio' | 'chords' | 'levels' | 'groove' | 'bridge' | 'library'
+type MidiTestRun = 'single' | 'walk' | 'chord' | 'groove'
+type MidiTestStage = 'idle' | MidiTestRun
 
 const VIEW_ITEMS: { id: ViewId; label: string; icon: typeof Music }[] = [
   { id: 'studio', label: 'Studio', icon: Music },
@@ -89,6 +93,9 @@ function App() {
   const [midiOutputs, setMidiOutputs] = useState<MidiOutputDevice[]>([])
   const [selectedOutputId, setSelectedOutputId] = useState('')
   const [midiMessage, setMidiMessage] = useState('No MIDI device selected')
+  const [mpcConfirmed, setMpcConfirmed] = useState(false)
+  const [lastMidiTest, setLastMidiTest] = useState('No test sent yet')
+  const [testRunStage, setTestRunStage] = useState<MidiTestStage>('idle')
   const [probeNote, setProbeNote] = useState(36)
   const [probePad, setProbePad] = useState<PadNumber>(1)
   const [calibratedPads, setCalibratedPads] = useState<Partial<Record<PadNumber, number>>>({})
@@ -99,6 +106,7 @@ function App() {
   const pattern = project.patterns[0]
   const progression = project.progressions[0]
   const selectedOutput = midiOutputs.find((output) => output.id === selectedOutputId) ?? null
+  const selectedOutputLooksLikeMpc = selectedOutput ? isLikelyMpcOutput(selectedOutput) : false
   const analysis = useMemo(
     () => analyzeSixteenLevelsChord(chordRoot, chordQuality, sampleRootMidi, originalPad),
     [chordRoot, chordQuality, sampleRootMidi, originalPad],
@@ -192,6 +200,12 @@ function App() {
   }
 
   function startBeamWorkflow() {
+    if (!selectedOutput) {
+      setMidiMessage('Select and test a MIDI output before Beam')
+      setLastMidiTest('Beam blocked: no MIDI output selected')
+      return
+    }
+
     const loopMs = Math.max(2200, pattern.bars * BAR_TICKS * (60 / project.tempo / 960) * 1000)
     setBeamStage('count-in')
     window.setTimeout(() => {
@@ -217,10 +231,62 @@ function App() {
       const outputs = await requestMidiOutputs()
       setMidiOutputs(outputs)
       setSelectedOutputId(outputs[0]?.id ?? '')
+      setMpcConfirmed(false)
       setMidiMessage(outputs.length > 0 ? `${outputs.length} MIDI output${outputs.length === 1 ? '' : 's'} found` : 'No MIDI outputs found')
     } catch {
       setMidiMessage('MIDI permission was blocked')
     }
+  }
+
+  function selectMidiOutput(outputId: string) {
+    setSelectedOutputId(outputId)
+    setMpcConfirmed(false)
+    setLastMidiTest('Run a test after choosing an output')
+  }
+
+  function runMidiTest(testRun: MidiTestRun) {
+    if (!selectedOutput) {
+      setMidiMessage('Select a MIDI output before testing')
+      setLastMidiTest('No output selected')
+      return
+    }
+
+    setMpcConfirmed(false)
+    setTestRunStage(testRun)
+
+    if (testRun === 'single') {
+      sendMidiNote(selectedOutput, midiChannel, probeNote, 112, 260)
+      setLastMidiTest(`Sent ${midiToNoteWithOctave(probeNote)} on channel ${midiChannel}`)
+      window.setTimeout(() => setTestRunStage('idle'), 350)
+      return
+    }
+
+    if (testRun === 'walk') {
+      PAD_NUMBERS.forEach((pad, index) => {
+        const note = calibratedPads[pad] ?? 35 + pad
+        window.setTimeout(() => sendMidiNote(selectedOutput, midiChannel, note, 104, 130), index * 140)
+      })
+      setLastMidiTest(`Sent 16-pad walk on channel ${midiChannel}`)
+      window.setTimeout(() => setTestRunStage('idle'), PAD_NUMBERS.length * 140 + 180)
+      return
+    }
+
+    if (testRun === 'chord') {
+      const notes = selectedShape.pads.map((pad) => pad.midi)
+      if (notes.length === 0) {
+        setLastMidiTest('Current chord has no playable 16 Levels shape')
+        setTestRunStage('idle')
+        return
+      }
+      sendMidiChord(selectedOutput, midiChannel, notes, 96, 650, 24)
+      setLastMidiTest(`Sent ${describeChord(chordRoot, chordQuality)} chord test`)
+      window.setTimeout(() => setTestRunStage('idle'), 900)
+      return
+    }
+
+    beamPattern(selectedOutput, midiChannel, pattern, project.tempo)
+    setLastMidiTest(`Sent ${pattern.name} groove test at ${project.tempo} BPM`)
+    window.setTimeout(() => setTestRunStage('idle'), 1200)
   }
 
   function updatePattern(nextPattern: Pattern) {
@@ -444,18 +510,27 @@ function App() {
             selectedOutputId={selectedOutputId}
             midiMessage={midiMessage}
             midiChannel={midiChannel}
+            mpcConfirmed={mpcConfirmed}
+            outputLooksLikeMpc={selectedOutputLooksLikeMpc}
+            lastMidiTest={lastMidiTest}
+            testRunStage={testRunStage}
             probeNote={probeNote}
             probePad={probePad}
             selectedOutput={selectedOutput}
             calibratedPads={calibratedPads}
             beamStage={beamStage}
             onConnect={connectMidi}
-            onOutputChange={setSelectedOutputId}
+            onOutputChange={selectMidiOutput}
             onChannelChange={setMidiChannel}
             onProbeNoteChange={setProbeNote}
             onProbePadChange={setProbePad}
-            onProbe={() => sendMidiNote(selectedOutput, midiChannel, probeNote, 110, 180)}
+            onProbe={() => runMidiTest('single')}
             onSaveProbe={() => setCalibratedPads((current) => ({ ...current, [probePad]: probeNote }))}
+            onRunTest={runMidiTest}
+            onConfirmMpc={() => {
+              setMpcConfirmed(true)
+              setMidiMessage(`MPC confirmed on ${selectedOutput?.name ?? 'selected output'}`)
+            }}
             onBeam={startBeamWorkflow}
           />
         )}
@@ -1008,6 +1083,10 @@ interface BridgeViewProps {
   selectedOutputId: string
   midiMessage: string
   midiChannel: number
+  mpcConfirmed: boolean
+  outputLooksLikeMpc: boolean
+  lastMidiTest: string
+  testRunStage: MidiTestStage
   probeNote: number
   probePad: PadNumber
   selectedOutput: MidiOutputDevice | null
@@ -1020,6 +1099,8 @@ interface BridgeViewProps {
   onProbePadChange: (pad: PadNumber) => void
   onProbe: () => void
   onSaveProbe: () => void
+  onRunTest: (testRun: MidiTestRun) => void
+  onConfirmMpc: () => void
   onBeam: () => void
 }
 
@@ -1028,6 +1109,10 @@ function BridgeView({
   selectedOutputId,
   midiMessage,
   midiChannel,
+  mpcConfirmed,
+  outputLooksLikeMpc,
+  lastMidiTest,
+  testRunStage,
   probeNote,
   probePad,
   selectedOutput,
@@ -1040,9 +1125,20 @@ function BridgeView({
   onProbePadChange,
   onProbe,
   onSaveProbe,
+  onRunTest,
+  onConfirmMpc,
   onBeam,
 }: BridgeViewProps) {
   const calibratedCount = Object.keys(calibratedPads).length
+  const connectionTone = mpcConfirmed ? 'confirmed' : selectedOutput ? 'detected' : 'offline'
+  const connectionTitle = mpcConfirmed ? 'MPC response confirmed' : selectedOutput ? 'MIDI output selected' : 'No MPC confirmed'
+  const connectionCopy = mpcConfirmed
+    ? 'The MPC reacted to a test run in this session.'
+    : selectedOutput
+      ? outputLooksLikeMpc
+        ? 'This output name looks like Akai/MPC hardware. Run a test and confirm it responds.'
+        : 'This output is available, but the name does not prove it is the MPC. Run a test before Beam.'
+      : 'Connect the MPC over USB, then find MIDI outputs from a user click.'
 
   return (
     <section className="bridge-layout">
@@ -1053,8 +1149,15 @@ function BridgeView({
         </Guide>
         <button type="button" className="primary-action" onClick={onConnect}>
           <Usb size={18} />
-          <span>Find MIDI outputs</span>
+          <span>{midiOutputs.length > 0 ? 'Refresh MIDI outputs' : 'Find MIDI outputs'}</span>
         </button>
+        <div className={`connection-card ${connectionTone}`} aria-live="polite">
+          {mpcConfirmed ? <CheckCircle2 size={22} /> : <AlertCircle size={22} />}
+          <div>
+            <strong>{connectionTitle}</strong>
+            <span>{connectionCopy}</span>
+          </div>
+        </div>
         <ControlRow label="Output">
           <select value={selectedOutputId} onChange={(event) => onOutputChange(event.target.value)}>
             <option value="">None</option>
@@ -1071,8 +1174,44 @@ function BridgeView({
         <StatusStack
           items={[
             { label: 'Status', value: midiMessage },
+            { label: 'MPC guess', value: selectedOutput ? (outputLooksLikeMpc ? 'Likely MPC / Akai' : 'Unknown device name') : 'No output selected' },
             { label: 'Context', value: isSecureMidiContext() ? 'Secure' : 'Needs HTTPS' },
             { label: 'API', value: isWebMidiAvailable() ? 'Available' : 'Unavailable' },
+          ]}
+        />
+      </div>
+
+      <div className="panel">
+        <PanelHeader kicker="MPC confirmation" title="Test runs" value={mpcConfirmed ? 'Confirmed' : testRunStageLabel(testRunStage)} />
+        <Guide title="Confirm the hardware responds">
+          <p>Run a quick test. If the MPC pad lights, meters move, or you hear the sound, press MPC responded. That is the reliable confirmation.</p>
+        </Guide>
+        <div className="test-run-grid">
+          <button type="button" className="secondary-action" onClick={() => onRunTest('single')} disabled={!selectedOutput}>
+            <Play size={18} />
+            <span>Test note</span>
+          </button>
+          <button type="button" className="secondary-action" onClick={() => onRunTest('walk')} disabled={!selectedOutput}>
+            <Radio size={18} />
+            <span>Pad walk 1-16</span>
+          </button>
+          <button type="button" className="secondary-action" onClick={() => onRunTest('chord')} disabled={!selectedOutput}>
+            <Music size={18} />
+            <span>Test chord</span>
+          </button>
+          <button type="button" className="secondary-action" onClick={() => onRunTest('groove')} disabled={!selectedOutput}>
+            <Square size={18} />
+            <span>Test groove</span>
+          </button>
+        </div>
+        <button type="button" className="primary-action" onClick={onConfirmMpc} disabled={!selectedOutput}>
+          <CheckCircle2 size={18} />
+          <span>MPC responded</span>
+        </button>
+        <StatusStack
+          items={[
+            { label: 'Last test', value: lastMidiTest },
+            { label: 'Confirmation', value: mpcConfirmed ? 'Ready for Beam' : 'Waiting for response check' },
           ]}
         />
       </div>
@@ -1140,11 +1279,24 @@ function beamStageLabel(stage: 'ready' | 'count-in' | 'playing' | 'recall'): str
   return 'Live capture'
 }
 
+function testRunStageLabel(stage: MidiTestStage): string {
+  if (stage === 'single') return 'Note sent'
+  if (stage === 'walk') return 'Walking pads'
+  if (stage === 'chord') return 'Chord sent'
+  if (stage === 'groove') return 'Groove sent'
+  return 'Needs test'
+}
+
 function beamStageCopy(stage: string): string {
   if (stage === 'ready') return 'USB MIDI, Pad MIDI In, channel, and Time Correct are set.'
   if (stage === 'count-in') return 'One moment to get your hands near the MPC.'
   if (stage === 'playing') return 'The app is firing the current groove over MIDI.'
   return 'Press Recall on the MPC before the idea disappears.'
+}
+
+function isLikelyMpcOutput(output: MidiOutputDevice): boolean {
+  const deviceName = `${output.name} ${output.manufacturer ?? ''}`.toLowerCase()
+  return ['mpc', 'akai', 'mpd', 'mpk'].some((term) => deviceName.includes(term))
 }
 
 interface LibraryViewProps {
