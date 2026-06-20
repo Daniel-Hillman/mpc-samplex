@@ -170,7 +170,7 @@ select:focus-visible {
   color: var(--muted);
 }
 
-.tab-button.active {
+button.tab-button.active {
   color: var(--paper);
   background: var(--ink);
   border-color: var(--ink);
@@ -580,7 +580,7 @@ main {
   font-weight: 700;
 }
 
-.toggle.active {
+button.toggle.active {
   color: var(--paper);
   background: var(--ink);
   border-color: var(--ink);
@@ -707,7 +707,7 @@ output {
   text-align: left;
 }
 
-.chord-chip.active {
+button.chord-chip.active {
   color: var(--paper);
   background: var(--ink);
   border-color: var(--ink);
@@ -718,9 +718,9 @@ output {
   font-size: 1.05rem;
 }
 
-.chord-chip.active strong,
-.chord-chip.active small,
-.chord-chip.active span {
+button.chord-chip.active strong,
+button.chord-chip.active small,
+button.chord-chip.active span {
   color: var(--paper);
 }
 
@@ -810,7 +810,7 @@ output {
   border-radius: 4px;
 }
 
-.mini-pad.active {
+button.mini-pad.active {
   color: var(--paper);
   background: var(--ink);
 }
