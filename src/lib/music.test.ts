@@ -3,8 +3,11 @@ import {
   BAR_TICKS,
   analyzeSixteenLevelsChord,
   createPitchWindow,
+  formatSemitoneShift,
+  getScaleNotes,
   noteNameToMidi,
   padToMidi,
+  shortestPitchShift,
   toggleGridEvent,
 } from './music'
 import type { PadNumber, Pattern } from '../types'
@@ -54,5 +57,17 @@ describe('absolute tick sequencing', () => {
 
     expect(eventTick).toBe(BAR_TICKS / 4)
     expect(withTripletGrid.events.find((event) => event.laneId === 'kick')?.tick).toBe(eventTick)
+  })
+})
+
+describe('sample helper theory tools', () => {
+  it('finds scale notes for MPC safe-pad highlighting', () => {
+    expect(getScaleNotes('A', 'minorPent')).toEqual(['A', 'C', 'D', 'E', 'G'])
+    expect(getScaleNotes('G', 'mixolydian')).toContain('F')
+  })
+
+  it('calculates the shortest one-shot repitch move', () => {
+    expect(shortestPitchShift('C', 'A')).toBe(-3)
+    expect(formatSemitoneShift(-3)).toBe('Pitch down -3 semitones')
   })
 })

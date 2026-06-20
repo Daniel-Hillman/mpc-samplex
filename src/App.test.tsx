@@ -3,37 +3,35 @@ import { describe, expect, it } from 'vitest'
 import App from './App'
 
 describe('MPC Studio shell', () => {
-  it('renders the touch-first studio surface without requiring MIDI', () => {
+  it('renders the touch-first studio surface with browser audio preview', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'MPC Studio' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /16 Levels/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Audition shape/i })).toBeInTheDocument()
+    expect(screen.getByText(/Scale notes \(7\):/i)).toBeInTheDocument()
+    expect(screen.getByText(/Visible notes \(7\/7\):/i)).toBeInTheDocument()
   })
 
-  it('lets users reorder and remove progression chords while showing the MIDI view', () => {
+  it('shows simple in-key chords and pad recipes on the chord page', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Chords' }))
 
-    expect(screen.getByLabelText('MIDI view')).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: /Remove /i })).toHaveLength(4)
-
-    fireEvent.click(screen.getByRole('button', { name: /Move Fm7 earlier/i }))
-    expect(screen.getByText(/1\. Fm7/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getAllByRole('button', { name: /Remove /i })[0])
-    expect(screen.getAllByRole('button', { name: /Remove /i })).toHaveLength(3)
+    expect(screen.getByText('Scale and sample')).toBeInTheDocument()
+    expect(screen.getByText('Best in-key chords')).toBeInTheDocument()
+    expect(screen.getByText(/Press:/)).toBeInTheDocument()
+    expect(screen.getByText('fourth')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Transport')).not.toBeInTheDocument()
   })
 
-  it('shows MPC connection confirmation and test runs in the bridge', () => {
+  it('shows a dedicated chord pads builder with a playable recipe', () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Bridge' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Chord Pads' }))
 
-    expect(screen.getByText('MPC confirmation')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Test note' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Pad walk 1-16/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /MPC responded/i })).toBeDisabled()
+    expect(screen.getByText('Chord pad builder')).toBeInTheDocument()
+    expect(screen.getByText(/Press these pads/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Hear chord/i })).toBeInTheDocument()
   })
 })

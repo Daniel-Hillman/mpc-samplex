@@ -23,7 +23,6 @@ export interface PadMap {
   id: string
   name: string
   bank: Bank
-  midiChannel: number
   notesByPad: Record<PadNumber, number>
   createdAt: string
   updatedAt: string
@@ -156,15 +155,6 @@ export interface StudioProject {
 export interface AppSettings {
   id: 'settings'
   previewEnabled: boolean
-  midiEnabled: boolean
-  midiChannel: number
   lastPadMapId: string
   updatedAt: string
-}
-
-export interface MidiOutputDevice {
-  id: string
-  name: string
-  manufacturer?: string
-  send: (data: number[], timestamp?: number) => void
 }

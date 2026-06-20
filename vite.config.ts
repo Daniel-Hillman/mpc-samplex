@@ -12,7 +12,7 @@ export default defineConfig({
       manifest: {
         name: 'MPC Studio',
         short_name: 'MPC Studio',
-        description: 'Touch-first theory, 16 Levels, groove, and Web MIDI companion for the Akai MPC Sample.',
+        description: 'Touch-first theory, 16 Levels, groove, and browser audio companion for the Akai MPC Sample.',
         theme_color: '#15120f',
         background_color: '#15120f',
         display: 'standalone',

@@ -30,8 +30,6 @@ export async function ensureDefaultRecords() {
     await db.settings.put({
       id: 'settings',
       previewEnabled: true,
-      midiEnabled: false,
-      midiChannel: 1,
       lastPadMapId: 'factory-chromatic',
       updatedAt: new Date().toISOString(),
     })

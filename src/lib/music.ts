@@ -16,10 +16,23 @@ import type {
   TimelineEvent,
 } from '../types'
 
+export type ScaleType = 'major' | 'minor' | 'minorPent' | 'majorPent' | 'blues' | 'dorian' | 'phrygian' | 'mixolydian'
+
 export const PPQN = 960
 export const BAR_TICKS = PPQN * 4
 export const PAD_NUMBERS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] as PadNumber[]
 export const ROOT_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
+export const SCALE_DEFINITIONS: { id: ScaleType; label: string; intervals: number[] }[] = [
+  { id: 'major', label: 'Major', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  { id: 'minor', label: 'Minor', intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { id: 'minorPent', label: 'Minor pentatonic', intervals: [0, 3, 5, 7, 10] },
+  { id: 'majorPent', label: 'Major pentatonic', intervals: [0, 2, 4, 7, 9] },
+  { id: 'blues', label: 'Blues', intervals: [0, 3, 5, 6, 7, 10] },
+  { id: 'dorian', label: 'Dorian', intervals: [0, 2, 3, 5, 7, 9, 10] },
+  { id: 'phrygian', label: 'Phrygian', intervals: [0, 1, 3, 5, 7, 8, 10] },
+  { id: 'mixolydian', label: 'Mixolydian', intervals: [0, 2, 4, 5, 7, 9, 10] },
+]
 
 const NOTE_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 const NOTE_TO_PITCH_CLASS: Record<string, number> = {
@@ -88,6 +101,10 @@ export function getChordDefinition(id: ChordQualityId): ChordDefinition {
   return CHORD_DEFINITIONS.find((quality) => quality.id === id) ?? CHORD_DEFINITIONS[0]
 }
 
+export function intervalRoleLabel(interval: number): string {
+  return INTERVAL_LABELS[interval] ?? INTERVAL_LABELS[positiveMod(interval, 12)] ?? `${interval} st`
+}
+
 export function midiToNoteName(midi: number): string {
   return NOTE_NAMES[positiveMod(midi, 12)]
 }
@@ -98,6 +115,31 @@ export function midiToNoteWithOctave(midi: number): string {
 
 export function noteNameToMidi(noteName: string, octave = 3): number {
   return (NOTE_TO_PITCH_CLASS[noteName] ?? 0) + (octave + 1) * 12
+}
+
+export function pitchClass(noteName: string): number {
+  return positiveMod(noteNameToMidi(noteName, 3), 12)
+}
+
+export function getScaleDefinition(scaleType: ScaleType): { id: ScaleType; label: string; intervals: number[] } {
+  return SCALE_DEFINITIONS.find((scale) => scale.id === scaleType) ?? SCALE_DEFINITIONS[1]
+}
+
+export function getScaleNotes(root: string, scaleType: ScaleType): string[] {
+  const rootMidi = noteNameToMidi(root, 3)
+  return getScaleDefinition(scaleType).intervals.map((interval) => midiToNoteName(rootMidi + interval))
+}
+
+export function shortestPitchShift(fromNote: string, toNote: string): number {
+  const up = positiveMod(pitchClass(toNote) - pitchClass(fromNote), 12)
+  const down = up - 12
+  return Math.abs(up) <= Math.abs(down) ? up : down
+}
+
+export function formatSemitoneShift(semitones: number): string {
+  if (semitones === 0) return 'No pitch shift needed'
+  if (semitones > 0) return `Pitch up +${semitones} semitone${semitones === 1 ? '' : 's'}`
+  return `Pitch down ${semitones} semitone${Math.abs(semitones) === 1 ? '' : 's'}`
 }
 
 export function createPitchWindow(sampleRootMidi: number, originalPitchPad: PadNumber): PitchWindow {
@@ -134,7 +176,6 @@ export function createDefaultPadMap(): PadMap {
     id: 'factory-chromatic',
     name: 'Factory chromatic guess',
     bank: 'A',
-    midiChannel: 1,
     notesByPad,
     createdAt: now,
     updatedAt: now,
@@ -146,13 +187,14 @@ export function describeChord(root: string, qualityId: ChordQualityId): string {
   return `${root}${quality.symbol}`
 }
 
-export function getDiatonicChords(keyRoot: string, scaleType = 'major'): ChordStep[] {
-  const scaleIntervals = scaleType === 'minor' ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]
+export function getDiatonicChords(keyRoot: string, scaleType: ScaleType = 'major'): ChordStep[] {
+  const minorishScales: ScaleType[] = ['minor', 'minorPent', 'blues', 'dorian', 'phrygian']
+  const scaleIntervals = minorishScales.includes(scaleType) ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]
   const keyMidi = noteNameToMidi(keyRoot, 3)
   const notes = scaleIntervals.map((interval) => midiToNoteName(keyMidi + interval))
   const majorQualities: ChordQualityId[] = ['maj7', 'min7', 'min7', 'maj7', 'dom7', 'min7', 'dim']
   const minorQualities: ChordQualityId[] = ['min7', 'dim', 'maj7', 'min7', 'min7', 'maj7', 'dom7']
-  const qualities = scaleType === 'minor' ? minorQualities : majorQualities
+  const qualities = minorishScales.includes(scaleType) ? minorQualities : majorQualities
 
   return notes.slice(0, 7).map((root, index) => ({
     id: `diatonic-${root}-${qualities[index]}`,

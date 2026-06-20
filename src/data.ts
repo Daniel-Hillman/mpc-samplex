@@ -27,7 +27,7 @@ export function createInitialProject(): StudioProject {
     sixteenLevelsSetups: [
       {
         sampleRootMidi: noteNameToMidi('C', 3),
-        originalPitchPad: 1,
+        originalPitchPad: 4,
         targetKey: 'C minor',
       },
     ],
