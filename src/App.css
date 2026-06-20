@@ -328,10 +328,10 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  min-height: 2rem;
+  min-height: 2.65rem;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 0 0.65rem;
+  padding: 0 0.85rem;
   color: var(--muted);
   background: #f4ecdf;
   cursor: pointer;
@@ -686,7 +686,8 @@ output {
 }
 
 .segmented button {
-  min-height: 2.35rem;
+  min-width: 2.65rem;
+  min-height: 2.65rem;
   padding: 0 0.7rem;
   border-radius: 4px;
   color: var(--muted);
@@ -920,6 +921,20 @@ button.mini-pad.active {
 
 .groove-layout .wide-panel {
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.groove-layout .wide-panel::-webkit-scrollbar {
+  height: 0.75rem;
+}
+
+.groove-layout .wide-panel::-webkit-scrollbar-thumb {
+  border: 0.2rem solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong);
+  background-clip: content-box;
 }
 
 .sequencer-toolbar {
@@ -1198,7 +1213,11 @@ button.mini-pad.active {
   }
 
   .lane {
-    grid-template-columns: 4rem repeat(var(--steps), minmax(2rem, 1fr));
+    grid-template-columns: 4rem repeat(var(--steps), minmax(2.65rem, 1fr));
+  }
+
+  .groove-layout .wide-panel {
+    box-shadow: var(--shadow), inset -1.35rem 0 1rem -1.1rem rgba(35, 28, 20, 0.28);
   }
 
 }
