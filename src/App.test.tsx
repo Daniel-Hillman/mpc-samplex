@@ -19,9 +19,17 @@ describe('MPC Studio shell', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chords' }))
 
     expect(screen.getByText('Scale and sample')).toBeInTheDocument()
-    expect(screen.getByText('Best in-key chords')).toBeInTheDocument()
+    expect(screen.getByText('1st to 7th chords')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Color chords' })).toBeInTheDocument()
     expect(screen.getByText(/Press:/)).toBeInTheDocument()
     expect(screen.getByText('fourth')).toBeInTheDocument()
+    expect(screen.getByText('Selected chords')).toBeInTheDocument()
+    expect(screen.getByText(/tap the Add button under the pads/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Add Cm9/i }))
+    expect(screen.getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Up' })).toBeDisabled()
+    expect(screen.getAllByText(/P4 \+ P6/).length).toBeGreaterThan(1)
     expect(screen.queryByLabelText('Transport')).not.toBeInTheDocument()
   })
 

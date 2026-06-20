@@ -1,15 +1,10 @@
-import { BAR_TICKS, createDefaultPadMap, createTemplatePattern, noteNameToMidi } from './lib/music'
+import { createDefaultPadMap, createTemplatePattern, noteNameToMidi } from './lib/music'
 import type { ChordProgression, StudioProject } from './types'
 
 export const DEFAULT_PROGRESSION: ChordProgression = {
-  id: 'progression-velvet-loop',
-  name: 'Velvet loop',
-  steps: [
-    { id: 'step-1', root: 'C', quality: 'min9', durationTicks: BAR_TICKS },
-    { id: 'step-2', root: 'F', quality: 'min7', durationTicks: BAR_TICKS },
-    { id: 'step-3', root: 'Bb', quality: 'dom9', durationTicks: BAR_TICKS },
-    { id: 'step-4', root: 'Eb', quality: 'maj7', durationTicks: BAR_TICKS },
-  ],
+  id: 'progression-chord-sketch',
+  name: 'Chord sketch',
+  steps: [],
 }
 
 export function createInitialProject(): StudioProject {

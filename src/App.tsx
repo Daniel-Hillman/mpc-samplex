@@ -44,9 +44,10 @@ import {
   shortestPitchShift,
   toggleGridEvent,
 } from './lib/music'
-import type { ChordQualityId, ChordShape, PadNumber, Pattern, StudioProject } from './types'
+import type { ChordQualityId, ChordShape, ChordStep, PadNumber, Pattern, StudioProject } from './types'
 
 type ViewId = 'studio' | 'chordPads' | 'chords' | 'levels' | 'groove' | 'library'
+type ChordPaletteMode = 'triads' | 'sevenths' | 'colors'
 type PadHighlight = {
   isSafe: boolean
   isRoot: boolean
@@ -96,12 +97,21 @@ function App() {
   const audioRef = useRef<StudioAudio | null>(null)
 
   const pattern = project.patterns[0]
+  const progression = project.progressions[0]
   const analysis = useMemo(
     () => analyzeSixteenLevelsChord(chordRoot, chordQuality, sampleRootMidi, originalPad),
     [chordRoot, chordQuality, sampleRootMidi, originalPad],
   )
   const selectedShape = analysis.shapes[0]
   const diatonicChords = useMemo(() => getDiatonicChords(keyRoot, scaleType), [keyRoot, scaleType])
+  const progressionShapes = useMemo(
+    () =>
+      progression.steps.map((step) => ({
+        step,
+        shape: analyzeSixteenLevelsChord(step.root, step.quality, sampleRootMidi, originalPad).shapes[0],
+      })),
+    [originalPad, progression.steps, sampleRootMidi],
+  )
   const pitchWindow = useMemo(() => createPitchWindow(sampleRootMidi, originalPad), [sampleRootMidi, originalPad])
   const scaleNotes = useMemo(() => getScaleNotes(keyRoot, scaleType), [keyRoot, scaleType])
   const scaleDefinition = useMemo(() => getScaleDefinition(scaleType), [scaleType])
@@ -254,6 +264,79 @@ function App() {
     }))
   }
 
+  function addChordToProgression(root: string, quality: ChordQualityId) {
+    setProject((current) => {
+      const currentProgression = current.progressions[0]
+      const nextProgression = {
+        ...currentProgression,
+        steps: [
+          ...currentProgression.steps,
+          {
+            id: `step-${Date.now()}-${currentProgression.steps.length}`,
+            root,
+            quality,
+            durationTicks: BAR_TICKS,
+          },
+        ],
+      }
+
+      return {
+        ...current,
+        progressions: [nextProgression],
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  function moveChordInProgression(stepId: string, direction: -1 | 1) {
+    setProject((current) => {
+      const currentProgression = current.progressions[0]
+      const steps = [...currentProgression.steps]
+      const fromIndex = steps.findIndex((step) => step.id === stepId)
+      const toIndex = fromIndex + direction
+
+      if (fromIndex < 0 || toIndex < 0 || toIndex >= steps.length) {
+        return current
+      }
+
+      const [step] = steps.splice(fromIndex, 1)
+      steps.splice(toIndex, 0, step)
+
+      return {
+        ...current,
+        progressions: [{ ...currentProgression, steps }],
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  function removeChordFromProgression(stepId: string) {
+    setProject((current) => {
+      const currentProgression = current.progressions[0]
+      return {
+        ...current,
+        progressions: [
+          {
+            ...currentProgression,
+            steps: currentProgression.steps.filter((step) => step.id !== stepId),
+          },
+        ],
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
+  function clearProgression() {
+    setProject((current) => {
+      const currentProgression = current.progressions[0]
+      return {
+        ...current,
+        progressions: [{ ...currentProgression, steps: [] }],
+        updatedAt: new Date().toISOString(),
+      }
+    })
+  }
+
   async function saveLocalProject() {
     const { saveProject } = await import('./lib/storage')
     const nextProject = {
@@ -390,6 +473,7 @@ function App() {
             originalPad={originalPad}
             diatonicChords={diatonicChords}
             selectedShape={selectedShape}
+            progressionShapes={progressionShapes}
             pitchWindow={pitchWindow}
             chordShapeHighlights={chordShapeHighlights}
             animatedPads={animatedPads}
@@ -399,6 +483,10 @@ function App() {
             onScaleTypeChange={setScaleType}
             onSampleRootChange={setSampleRootMidi}
             onOriginalPadChange={setOriginalPad}
+            onAddChord={addChordToProgression}
+            onMoveChord={moveChordInProgression}
+            onRemoveChord={removeChordFromProgression}
+            onClearProgression={clearProgression}
             onAnimate={() => animatePads(selectedShape.pads.map((pad) => pad.pad), 'chord')}
             onPlayPad={playSinglePad}
           />
@@ -1020,6 +1108,7 @@ interface ChordsViewProps {
   originalPad: PadNumber
   diatonicChords: { id: string; root: string; quality: ChordQualityId; durationTicks: number }[]
   selectedShape: ChordShape
+  progressionShapes: { step: ChordStep; shape: ChordShape }[]
   pitchWindow: ReturnType<typeof createPitchWindow>
   chordShapeHighlights: Record<PadNumber, PadHighlight>
   animatedPads: PadNumber[]
@@ -1029,6 +1118,10 @@ interface ChordsViewProps {
   onScaleTypeChange: (scaleType: ScaleType) => void
   onSampleRootChange: (midi: number) => void
   onOriginalPadChange: (pad: PadNumber) => void
+  onAddChord: (root: string, quality: ChordQualityId) => void
+  onMoveChord: (stepId: string, direction: -1 | 1) => void
+  onRemoveChord: (stepId: string) => void
+  onClearProgression: () => void
   onAnimate: () => void
   onPlayPad: (pad: PadNumber) => void
 }
@@ -1042,6 +1135,7 @@ function ChordsView({
   originalPad,
   diatonicChords,
   selectedShape,
+  progressionShapes,
   pitchWindow,
   chordShapeHighlights,
   animatedPads,
@@ -1051,11 +1145,20 @@ function ChordsView({
   onScaleTypeChange,
   onSampleRootChange,
   onOriginalPadChange,
+  onAddChord,
+  onMoveChord,
+  onRemoveChord,
+  onClearProgression,
   onAnimate,
   onPlayPad,
 }: ChordsViewProps) {
+  const [paletteMode, setPaletteMode] = useState<ChordPaletteMode>('sevenths')
   const sampleNote = midiToNoteName(sampleRootMidi)
   const scaleLabel = getScaleDefinition(scaleType).label
+  const degreeChords = diatonicChords.map((step, index) => ({
+    ...step,
+    quality: degreeQuality(index, scaleType, paletteMode),
+  }))
   const playablePads = selectedShape.pads.slice().sort((a, b) => a.pad - b.pad)
   const padRecipe = playablePads.map((pad) => `P${pad.pad}`).join(' + ')
   const missingEssentials = selectedShape.missing.filter((tone) => getChordDefinition(chordQuality).coreIntervals.includes(tone.interval))
@@ -1121,12 +1224,24 @@ function ChordsView({
       </aside>
 
       <div className="panel chord-finder-palette">
-        <PanelHeader kicker="2. Choose chord" title="Best in-key chords" value={`${diatonicChords.length} options`} />
-        <Guide title="Start with the strong degrees">
-          <p>I is home, IV opens the loop, V wants to resolve, and VI is often a good emotional move. Tap a chord to light the pads.</p>
+        <PanelHeader kicker="2. Scale degrees" title="1st to 7th chords" value={paletteModeLabel(paletteMode)} />
+        <Guide title="Pick a degree, then add it">
+          <p>The 1st is home, 4th opens the loop, 5th pulls back home, and 6th is often the emotional move. Tap a degree to see its 16 Levels pads.</p>
         </Guide>
+        <div className="mode-strip" aria-label="Chord type">
+          {(['triads', 'sevenths', 'colors'] as ChordPaletteMode[]).map((mode) => (
+            <button
+              type="button"
+              key={mode}
+              className={paletteMode === mode ? 'mode-button active' : 'mode-button'}
+              onClick={() => setPaletteMode(mode)}
+            >
+              {paletteModeLabel(mode)}
+            </button>
+          ))}
+        </div>
         <div className="chord-palette chord-degree-grid">
-          {diatonicChords.map((step, index) => {
+          {degreeChords.map((step, index) => {
             const active = step.root === chordRoot && step.quality === chordQuality
             return (
               <button
@@ -1135,7 +1250,7 @@ function ChordsView({
                 className={active ? 'chord-chip active' : 'chord-chip'}
                 onClick={() => selectChord(step.root, step.quality)}
               >
-                <span>{degreeLabel(index, step.quality)}</span>
+                <span>{degreeNumber(index)} / {degreeLabel(index, step.quality)}</span>
                 <strong>{describeChord(step.root, step.quality)}</strong>
                 <small>{degreeUse(index)}</small>
               </button>
@@ -1154,10 +1269,16 @@ function ChordsView({
           animatedPads={animatedPads}
           onPlayPad={onPlayPad}
         />
-        <button type="button" className="secondary-action" onClick={onAnimate} disabled={playablePads.length === 0}>
-          <Music size={18} />
-          <span>Flash chord pads</span>
-        </button>
+        <div className="pad-actions">
+          <button type="button" className="secondary-action" onClick={onAnimate} disabled={playablePads.length === 0}>
+            <Music size={18} />
+            <span>Flash chord pads</span>
+          </button>
+          <button type="button" className="primary-action" onClick={() => onAddChord(chordRoot, chordQuality)} disabled={playablePads.length === 0}>
+            <Music size={18} />
+            <span>Add {describeChord(chordRoot, chordQuality)}</span>
+          </button>
+        </div>
       </div>
 
       <aside className="panel chord-finder-recipe">
@@ -1184,7 +1305,6 @@ function ChordsView({
             </div>
           )}
         </div>
-
         <h3 className="mini-heading">Custom chord</h3>
         <ControlRow label="Root">
           <select value={chordRoot} onChange={(event) => onRootChange(event.target.value)}>
@@ -1205,6 +1325,47 @@ function ChordsView({
           </select>
         </ControlRow>
       </aside>
+
+      <div className="panel chord-finder-progression">
+        <PanelHeader kicker="5. Progression pads" title="Selected chords" value={`${progressionShapes.length} chords`} />
+        <Guide title="Play the progression on the MPC">
+          <p>Each row is one chord in order. Set 16 Levels the same way, then press the listed pads for each chord.</p>
+        </Guide>
+        {progressionShapes.length === 0 ? (
+          <div className="empty-state">
+            Choose a 1st-7th chord, then tap the Add button under the pads to start a progression recipe.
+          </div>
+        ) : (
+          <div className="progression-recipe-list">
+            {progressionShapes.map(({ step, shape }, index) => (
+              <div className={`progression-recipe ${rankClass(shape.rank)}`} key={step.id}>
+                <div className="progression-info">
+                  <span className="progression-index">{index + 1}</span>
+                  <strong>{describeChord(step.root, step.quality)}</strong>
+                  <small>{shape.inversion} / {rankLabel(shape.rank)}</small>
+                </div>
+                <b>{shape.pads.length ? shape.pads.map((pad) => `P${pad.pad}`).join(' + ') : 'retune'}</b>
+                <div className="progression-actions">
+                  <button type="button" className="secondary-action compact-action" onClick={() => onMoveChord(step.id, -1)} disabled={index === 0}>
+                    Up
+                  </button>
+                  <button type="button" className="secondary-action compact-action" onClick={() => onMoveChord(step.id, 1)} disabled={index === progressionShapes.length - 1}>
+                    Down
+                  </button>
+                  <button type="button" className="secondary-action compact-action" onClick={() => onRemoveChord(step.id)}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {progressionShapes.length > 0 && (
+          <button type="button" className="secondary-action" onClick={onClearProgression}>
+            Clear progression
+          </button>
+        )}
+      </div>
     </section>
   )
 }
@@ -1217,8 +1378,39 @@ function degreeLabel(index: number, quality: ChordQualityId): string {
   return base
 }
 
+function degreeNumber(index: number): string {
+  return ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th'][index] ?? `${index + 1}th`
+}
+
 function degreeUse(index: number): string {
   return ['home', 'passing', 'color', 'fourth', 'fifth', 'relative', 'turnaround'][index] ?? 'color'
+}
+
+function paletteModeLabel(mode: ChordPaletteMode): string {
+  if (mode === 'triads') return 'Triads'
+  if (mode === 'colors') return 'Color chords'
+  return '7ths'
+}
+
+function degreeQuality(index: number, scaleType: ScaleType, mode: ChordPaletteMode): ChordQualityId {
+  const minorishScales: ScaleType[] = ['minor', 'minorPent', 'blues', 'dorian', 'phrygian']
+  const isMinorish = minorishScales.includes(scaleType)
+
+  if (mode === 'triads') {
+    const majorTriads: ChordQualityId[] = ['maj', 'min', 'min', 'maj', 'maj', 'min', 'dim']
+    const minorTriads: ChordQualityId[] = ['min', 'dim', 'maj', 'min', 'min', 'maj', 'maj']
+    return (isMinorish ? minorTriads : majorTriads)[index] ?? 'maj'
+  }
+
+  if (mode === 'colors') {
+    const majorColors: ChordQualityId[] = ['maj9', 'min7', 'min7', 'maj9', 'dom13', 'min9', 'dim']
+    const minorColors: ChordQualityId[] = ['min9', 'dim', 'maj7', 'min11', 'min7', 'maj9', 'dom9']
+    return (isMinorish ? minorColors : majorColors)[index] ?? 'maj7'
+  }
+
+  const majorSevenths: ChordQualityId[] = ['maj7', 'min7', 'min7', 'maj7', 'dom7', 'min7', 'dim']
+  const minorSevenths: ChordQualityId[] = ['min7', 'dim', 'maj7', 'min7', 'min7', 'maj7', 'dom7']
+  return (isMinorish ? minorSevenths : majorSevenths)[index] ?? 'maj7'
 }
 
 interface LevelsViewProps {

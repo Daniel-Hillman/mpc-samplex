@@ -78,6 +78,7 @@
 .primary-action,
 .secondary-action,
 .file-action,
+.mode-button,
 .chord-chip,
 .shape-row,
 .suggestion,
@@ -105,6 +106,7 @@
 .primary-action:hover,
 .secondary-action:hover,
 .file-action:hover,
+.mode-button:hover,
 .chord-chip:hover,
 .shape-row:hover,
 .suggestion:hover,
@@ -122,6 +124,7 @@
 .primary-action:focus-visible,
 .secondary-action:focus-visible,
 .file-action:focus-visible,
+.mode-button:focus-visible,
 .chord-chip:focus-visible,
 .shape-row:focus-visible,
 .suggestion:focus-visible,
@@ -218,7 +221,8 @@ main {
   grid-template-columns: minmax(19rem, 0.72fr) minmax(30rem, 1.18fr) minmax(20rem, 0.78fr);
   grid-template-areas:
     "setup palette recipe"
-    "pads pads recipe";
+    "pads pads recipe"
+    "progression progression recipe";
   align-items: start;
 }
 
@@ -236,6 +240,17 @@ main {
 
 .chord-finder-recipe {
   grid-area: recipe;
+}
+
+.chord-finder-progression {
+  grid-area: progression;
+}
+
+.pad-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
 }
 
 .chord-pad-controls,
@@ -696,6 +711,26 @@ output {
   grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr));
 }
 
+.mode-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
+.mode-button {
+  min-height: 2.35rem;
+  border-radius: 4px;
+  padding: 0 0.7rem;
+  font-weight: 800;
+}
+
+button.mode-button.active {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 .chord-chip {
   display: grid;
   gap: 0.18rem;
@@ -754,6 +789,74 @@ button.chord-chip.active span {
 .warning-box {
   border-color: #c79b90;
   background: #f3ded7;
+}
+
+.empty-state {
+  border: 1px dashed var(--line-strong);
+  border-radius: 4px;
+  padding: 0.9rem;
+  color: var(--muted);
+  background: #f6efe4;
+}
+
+.progression-recipe-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.progression-recipe {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(9rem, auto) auto;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem;
+  background: #f6efe4;
+}
+
+.progression-info {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.progression-recipe strong {
+  color: var(--text-strong);
+}
+
+.progression-recipe small {
+  color: var(--muted);
+}
+
+.progression-recipe b {
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.progression-index {
+  width: max-content;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0.08rem 0.38rem;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.compact-action {
+  min-height: 2.25rem;
+  padding: 0 0.65rem;
+}
+
+.progression-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
 }
 
 .escape-stack {
@@ -960,7 +1063,8 @@ button.mini-pad.active {
     grid-template-areas:
       "setup palette"
       "pads pads"
-      "recipe recipe";
+      "recipe recipe"
+      "progression progression";
   }
 
   .chord-pad-layout {
@@ -1051,7 +1155,8 @@ button.mini-pad.active {
       "setup"
       "palette"
       "pads"
-      "recipe";
+      "recipe"
+      "progression";
   }
 
   .chord-pad-layout {
@@ -1078,6 +1183,18 @@ button.mini-pad.active {
 
   .status-stack div {
     grid-template-columns: 1fr;
+  }
+
+  .progression-recipe {
+    grid-template-columns: 1fr;
+  }
+
+  .progression-recipe b {
+    text-align: left;
+  }
+
+  .progression-actions {
+    justify-content: flex-start;
   }
 
   .lane {
