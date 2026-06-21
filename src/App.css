@@ -187,6 +187,7 @@ main {
 
 .studio-grid,
 .chord-finder-layout,
+.melody-layout,
 .levels-layout,
 .groove-layout,
 .library-layout,
@@ -221,6 +222,7 @@ main {
   grid-template-columns: minmax(19rem, 0.72fr) minmax(30rem, 1.18fr) minmax(20rem, 0.78fr);
   grid-template-areas:
     "setup palette recipe"
+    "coach coach recipe"
     "pads pads recipe"
     "progression progression recipe";
   align-items: start;
@@ -236,6 +238,10 @@ main {
 
 .chord-finder-pads {
   grid-area: pads;
+}
+
+.chord-finder-coach {
+  grid-area: coach;
 }
 
 .chord-finder-recipe {
@@ -296,6 +302,24 @@ main {
 .levels-layout {
   grid-template-columns: minmax(24rem, 1.1fr) minmax(22rem, 1fr) minmax(19rem, 0.7fr);
   align-items: start;
+}
+
+.melody-layout {
+  grid-template-columns: minmax(20rem, 0.72fr) minmax(30rem, 1.2fr) minmax(20rem, 0.72fr);
+  grid-template-areas: "setup pads phrases";
+  align-items: start;
+}
+
+.melody-setup {
+  grid-area: setup;
+}
+
+.melody-pad-panel {
+  grid-area: pads;
+}
+
+.melody-phrases {
+  grid-area: phrases;
 }
 
 .groove-layout {
@@ -462,6 +486,36 @@ main {
 .mpc-pad.chord.root {
   color: var(--paper);
   background: var(--gold);
+}
+
+.mpc-pad.melody-home {
+  color: var(--paper);
+  border-color: #70410f;
+  background: var(--gold);
+}
+
+.mpc-pad.melody-strong {
+  color: #fff8ec;
+  border-color: #75332b;
+  background: var(--rose);
+}
+
+.mpc-pad.melody-safe {
+  color: #f4efe5;
+  border-color: #1f5952;
+  background: var(--mint);
+}
+
+.mpc-pad.melody-passing {
+  color: var(--ink);
+  border-color: var(--line-strong);
+  background: #f4ecdf;
+}
+
+.mpc-pad.melody-tension {
+  color: #f4efe5;
+  border-color: #2b251d;
+  background: #2d2a24;
 }
 
 .mpc-pad.original {
@@ -700,6 +754,11 @@ output {
 }
 
 .chord-palette,
+.coach-stage-grid,
+.next-chord-grid,
+.recipe-grid,
+.playbook-list,
+.phrase-list,
 .shape-list,
 .suggestion-stack,
 .escape-stack,
@@ -710,6 +769,12 @@ output {
 
 .chord-palette {
   grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr));
+}
+
+.coach-stage-grid,
+.next-chord-grid,
+.recipe-grid {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
 
 .mode-strip {
@@ -772,6 +837,8 @@ button.chord-chip.active span {
 
 .shape-row,
 .suggestion,
+.recipe-card,
+.playbook-card,
 .escape-card,
 .template-button {
   display: grid;
@@ -782,9 +849,47 @@ button.chord-chip.active span {
 }
 
 .shape-row strong,
+.recipe-card strong,
+.playbook-card strong,
 .escape-card strong,
 .suggestion strong {
   color: var(--text-strong);
+}
+
+.suggestion b,
+.recipe-card b {
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.coach-card span,
+.next-card span,
+.phrase-card span {
+  color: var(--rose);
+  font-family: var(--mono);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
+.recipe-card,
+.playbook-card {
+  border: 1px solid var(--line);
+  background: #f6efe4;
+}
+
+.recipe-card.retune {
+  border-color: #b99a67;
+}
+
+.recipe-card.missing {
+  border-color: #c79b90;
+  background: #f3ded7;
+}
+
+.playbook-card small,
+.recipe-card span {
+  color: var(--muted);
 }
 
 .warning-box {
@@ -1077,9 +1182,17 @@ button.mini-pad.active {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "setup palette"
+      "coach coach"
       "pads pads"
       "recipe recipe"
       "progression progression";
+  }
+
+  .melody-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "setup phrases"
+      "pads pads";
   }
 
   .chord-pad-layout {
@@ -1102,6 +1215,7 @@ button.mini-pad.active {
 
   .studio-grid,
   .chord-finder-layout,
+  .melody-layout,
   .levels-layout,
   .groove-layout,
   .library-layout,
@@ -1110,6 +1224,7 @@ button.mini-pad.active {
   }
 
   .studio-grid .main-surface,
+  .melody-layout .melody-pad-panel,
   .levels-layout .shape-panel,
   .groove-layout .wide-panel,
   .split-layout .wide-panel {
@@ -1147,6 +1262,7 @@ button.mini-pad.active {
   .studio-grid,
   .helper-grid,
   .chord-finder-layout,
+  .melody-layout,
   .chord-pad-layout,
   .levels-layout,
   .groove-layout,
@@ -1169,9 +1285,17 @@ button.mini-pad.active {
     grid-template-areas:
       "setup"
       "palette"
+      "coach"
       "pads"
       "recipe"
       "progression";
+  }
+
+  .melody-layout {
+    grid-template-areas:
+      "setup"
+      "pads"
+      "phrases";
   }
 
   .chord-pad-layout {

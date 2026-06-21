@@ -8,9 +8,12 @@ describe('MPC Samplex shell', () => {
 
     expect(screen.getByRole('heading', { name: 'MPC Samplex' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /16 Levels/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Melodies' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Audition shape/i })).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'Sound' })).toHaveValue('warmKeys')
+    expect(screen.getByRole('button', { name: 'Natural' })).toBeInTheDocument()
     expect(screen.getByText(/Scale notes \(7\):/i)).toBeInTheDocument()
     expect(screen.getByText(/Visible notes \(7\/7\):/i)).toBeInTheDocument()
   })
@@ -23,9 +26,13 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByText('Scale and sample')).toBeInTheDocument()
     expect(screen.getByText('1st to 7th chords')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Color chords' })).toBeInTheDocument()
+    expect(screen.getByText('Build a loop')).toBeInTheDocument()
+    expect(screen.getByText('What next?')).toBeInTheDocument()
     expect(screen.getByText(/Press:/)).toBeInTheDocument()
     expect(screen.getByText('fourth')).toBeInTheDocument()
     expect(screen.getByText('Selected chords')).toBeInTheDocument()
+    expect(screen.getByText('Bass helper')).toBeInTheDocument()
+    expect(screen.getByText('Playbook')).toBeInTheDocument()
     expect(screen.getByText(/tap the Add button under the pads/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Add Cm9/i }))
@@ -33,5 +40,17 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByRole('button', { name: 'Up' })).toBeDisabled()
     expect(screen.getAllByText(/P4 \+ P6/).length).toBeGreaterThan(1)
     expect(screen.queryByLabelText('Transport')).not.toBeInTheDocument()
+  })
+
+  it('shows melody role pads and phrase recipes on the melodies page', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Melodies' }))
+
+    expect(screen.getByText('Melody setup')).toBeInTheDocument()
+    expect(screen.getByText('Melody notes')).toBeInTheDocument()
+    expect(screen.getByText('Try these shapes')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Simple hook/i })).toBeInTheDocument()
+    expect(screen.getByText(/Gold = home/)).toBeInTheDocument()
   })
 })

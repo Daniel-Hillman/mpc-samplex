@@ -1,10 +1,15 @@
 import type {
   ChordDefinition,
+  ChordDegree,
   ChordPad,
   ChordQualityId,
   ChordRank,
   ChordShape,
   ChordStep,
+  BassRecipe,
+  MelodyPad,
+  MelodyPadRole,
+  NextChordSuggestion,
   OriginalPadSuggestion,
   PadMap,
   PadNumber,
@@ -14,6 +19,7 @@ import type {
   RetuneSuggestion,
   SixteenLevelsAnalysis,
   TimelineEvent,
+  ProgressionPlaybookStep,
 } from '../types'
 
 export type ScaleType = 'major' | 'minor' | 'minorPent' | 'majorPent' | 'blues' | 'dorian' | 'phrygian' | 'mixolydian'
@@ -95,6 +101,31 @@ const RANK_WEIGHT: Record<ChordRank, number> = {
   Strong: 300,
   Shell: 180,
   'Not playable': 0,
+}
+
+const DEGREE_NUMBERS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th']
+const DEGREE_USES = ['home', 'passing', 'color', 'lift', 'pull home', 'emotional', 'turnaround']
+const NEXT_CHORD_MAP: Record<number, { category: NextChordSuggestion['category']; degreeIndex: number; label: string; reason: string }[]> = {
+  0: [
+    { category: 'Safe', degreeIndex: 5, label: 'emotional', reason: 'Moves away from home without feeling lost.' },
+    { category: 'Moodier', degreeIndex: 3, label: 'lift', reason: 'Opens the loop and gives the sample more space.' },
+    { category: 'Tension', degreeIndex: 4, label: 'pull home', reason: 'Creates a clear pull back to the 1st chord.' },
+  ],
+  5: [
+    { category: 'Safe', degreeIndex: 3, label: 'lift', reason: 'A common soulful move after the emotional 6th.' },
+    { category: 'Moodier', degreeIndex: 1, label: 'passing', reason: 'Adds color before the loop turns around.' },
+    { category: 'Tension', degreeIndex: 4, label: 'pull home', reason: 'Builds pressure before resolving.' },
+  ],
+  3: [
+    { category: 'Safe', degreeIndex: 4, label: 'pull home', reason: 'Sets up the return to the 1st chord.' },
+    { category: 'Moodier', degreeIndex: 0, label: 'home', reason: 'Resolves the phrase cleanly.' },
+    { category: 'Tension', degreeIndex: 1, label: 'passing', reason: 'Keeps the loop moving instead of resolving yet.' },
+  ],
+  4: [
+    { category: 'Safe', degreeIndex: 0, label: 'home', reason: 'The strongest resolution after tension.' },
+    { category: 'Moodier', degreeIndex: 5, label: 'emotional', reason: 'Dodges the obvious resolve for a sadder loop.' },
+    { category: 'Tension', degreeIndex: 3, label: 'lift', reason: 'Reopens the phrase instead of ending it.' },
+  ],
 }
 
 export function getChordDefinition(id: ChordQualityId): ChordDefinition {
@@ -202,6 +233,153 @@ export function getDiatonicChords(keyRoot: string, scaleType: ScaleType = 'major
     quality: qualities[index],
     durationTicks: BAR_TICKS,
   }))
+}
+
+export function getChordDegree(root: string, keyRoot: string, scaleType: ScaleType): ChordDegree | null {
+  const degreeIndex = getDiatonicChords(keyRoot, scaleType).findIndex((step) => pitchClass(step.root) === pitchClass(root))
+  if (degreeIndex < 0) {
+    return null
+  }
+
+  return {
+    index: degreeIndex,
+    number: DEGREE_NUMBERS[degreeIndex] ?? `${degreeIndex + 1}th`,
+    numeral: degreeNumeral(degreeIndex),
+    use: DEGREE_USES[degreeIndex] ?? 'color',
+  }
+}
+
+export function suggestNextChords(lastChord: ChordStep | null, keyRoot: string, scaleType: ScaleType): NextChordSuggestion[] {
+  const diatonic = getDiatonicChords(keyRoot, scaleType)
+  const degree = lastChord ? getChordDegree(lastChord.root, keyRoot, scaleType) : null
+  const choices =
+    degree !== null
+      ? (NEXT_CHORD_MAP[degree.index] ?? [
+          { category: 'Safe' as const, degreeIndex: 0, label: 'home', reason: 'Resets the loop with the clearest center.' },
+          { category: 'Moodier' as const, degreeIndex: 3, label: 'lift', reason: 'Opens the phrase and creates movement.' },
+          { category: 'Tension' as const, degreeIndex: 4, label: 'pull home', reason: 'Adds pressure before resolving.' },
+        ])
+      : [
+          { category: 'Safe' as const, degreeIndex: 0, label: 'home', reason: 'Start with the chord that feels like home.' },
+          { category: 'Moodier' as const, degreeIndex: 5, label: 'emotional', reason: 'Start a little sadder and more soulful.' },
+          { category: 'Tension' as const, degreeIndex: 4, label: 'pull home', reason: 'Start with a chord that wants to resolve.' },
+        ]
+
+  return choices.map((choice) => {
+    const step = diatonic[choice.degreeIndex] ?? diatonic[0]
+    const stepDegree = getChordDegree(step.root, keyRoot, scaleType) ?? {
+      index: choice.degreeIndex,
+      number: DEGREE_NUMBERS[choice.degreeIndex] ?? `${choice.degreeIndex + 1}th`,
+      numeral: degreeNumeral(choice.degreeIndex),
+      use: choice.label,
+    }
+
+    return {
+      id: `${choice.category}-${step.root}-${step.quality}`,
+      category: choice.category,
+      degree: stepDegree,
+      root: step.root,
+      quality: step.quality,
+      label: choice.label,
+      reason: choice.reason,
+    }
+  })
+}
+
+export function getMelodyPadRoles(scaleNotes: string[], chordShape: ChordShape, window: PitchWindow): MelodyPad[] {
+  const scalePitchClasses = new Set(scaleNotes.map(pitchClass))
+  const chordPitchClasses = new Set(chordShape.pads.map((pad) => positiveMod(pad.midi, 12)))
+  const homePitchClass = scaleNotes[0] ? pitchClass(scaleNotes[0]) : positiveMod(window.sampleRootMidi, 12)
+
+  return PAD_NUMBERS.map((pad) => {
+    const midi = padToMidi(window.sampleRootMidi, window.originalPitchPad, pad)
+    const noteName = midiToNoteName(midi)
+    const notePitch = positiveMod(midi, 12)
+    const role = melodyRoleForPitch(notePitch, homePitchClass, scalePitchClasses, chordPitchClasses)
+
+    return {
+      pad,
+      midi,
+      noteName,
+      role,
+      reason: melodyRoleReason(role),
+    }
+  })
+}
+
+export function getBassPadRecipe(chordStep: ChordStep, nextStep: ChordStep | null, window: PitchWindow): BassRecipe[] {
+  const rootMidi = noteNameToMidi(chordStep.root, 3)
+  const rootPad = bestPitchClassPad(rootMidi, window)
+  const fifthPad = bestPitchClassPad(rootMidi + 7, window)
+  const rootPads = pitchClassPads(rootMidi, window)
+  const octavePads = rootPads.length > 1 ? [rootPads[0].pad, rootPads[rootPads.length - 1].pad] : []
+  const approachMidi = nextStep ? noteNameToMidi(nextStep.root, 3) - 1 : null
+  const approachPad = approachMidi === null ? null : bestPitchClassPad(approachMidi, window)
+
+  return [
+    {
+      id: 'root',
+      label: 'Root bass',
+      pads: rootPad ? [rootPad.pad] : [],
+      instruction: rootPad ? `Use P${rootPad.pad} for ${chordStep.root}.` : `${chordStep.root} is not in the current window.`,
+      status: rootPad ? 'ready' : 'missing',
+    },
+    {
+      id: 'root-fifth',
+      label: 'Root + fifth',
+      pads: rootPad && fifthPad ? [rootPad.pad, fifthPad.pad] : [],
+      instruction: rootPad && fifthPad ? `Try P${rootPad.pad} -> P${fifthPad.pad}.` : 'Root or fifth is not in the current window.',
+      status: rootPad && fifthPad ? 'ready' : 'missing',
+    },
+    {
+      id: 'octave',
+      label: 'Octave jump',
+      pads: octavePads,
+      instruction:
+        octavePads.length === 2
+          ? `Jump P${octavePads[0]} -> P${octavePads[1]}.`
+          : rootPad
+            ? `Use P${rootPad.pad}, or retune that pad +12 for the higher octave.`
+            : 'Root is not in the current window.',
+      status: octavePads.length === 2 ? 'ready' : rootPad ? 'retune' : 'missing',
+    },
+    {
+      id: 'approach',
+      label: 'Approach note',
+      pads: approachPad ? [approachPad.pad] : [],
+      instruction:
+        approachPad && nextStep
+          ? `Use P${approachPad.pad} before ${nextStep.root} to lead into the next chord.`
+          : nextStep
+            ? 'No nearby approach note in this window.'
+            : 'Add another chord to get an approach note.',
+      status: approachPad ? 'ready' : 'missing',
+    },
+  ]
+}
+
+export function buildProgressionPlaybook(
+  progressionShapes: { step: ChordStep; shape: ChordShape }[],
+  scaleNotes: string[],
+  window: PitchWindow,
+): ProgressionPlaybookStep[] {
+  return progressionShapes.map(({ step, shape }, index) => {
+    const nextStep = progressionShapes[index + 1]?.step ?? progressionShapes[0]?.step ?? null
+    const bassRecipes = getBassPadRecipe(step, nextStep, window)
+    const bass = bassRecipes.find((recipe) => recipe.id === 'root-fifth' && recipe.status === 'ready') ?? bassRecipes[0]
+    const melodyPads = getMelodyPadRoles(scaleNotes, shape, window)
+      .filter((pad) => pad.role !== 'tension')
+      .sort((a, b) => melodyRoleWeight(a.role) - melodyRoleWeight(b.role) || a.pad - b.pad)
+      .slice(0, 5)
+
+    return {
+      id: `playbook-${step.id}`,
+      chordName: describeChord(step.root, step.quality),
+      chordPads: shape.pads.map((pad) => pad.pad),
+      bass,
+      melodyPads,
+    }
+  })
 }
 
 export function getChordToneMidi(root: string, interval: number): number {
@@ -549,6 +727,56 @@ function describeInversion(pads: ChordPad[], coreIntervals: number[]): string {
   if (normalized === thirdInterval) return 'First inversion'
   if (normalized === fifthInterval) return 'Second inversion'
   return `${INTERVAL_LABELS[bass.interval] ?? 'Color'} in bass`
+}
+
+function degreeNumeral(index: number): string {
+  return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'][index] ?? `${index + 1}`
+}
+
+function melodyRoleForPitch(notePitch: number, homePitchClass: number, scalePitchClasses: Set<number>, chordPitchClasses: Set<number>): MelodyPadRole {
+  if (notePitch === homePitchClass) {
+    return 'home'
+  }
+  if (chordPitchClasses.has(notePitch)) {
+    return 'strong'
+  }
+  if (scalePitchClasses.has(notePitch)) {
+    return 'safe'
+  }
+  if ([1, 11].some((offset) => scalePitchClasses.has(positiveMod(notePitch + offset, 12)))) {
+    return 'passing'
+  }
+  return 'tension'
+}
+
+function melodyRoleReason(role: MelodyPadRole): string {
+  if (role === 'home') return 'Feels resolved and centered.'
+  if (role === 'strong') return 'Sits inside the current chord.'
+  if (role === 'safe') return 'Belongs to the selected scale.'
+  if (role === 'passing') return 'Use briefly between safer notes.'
+  return 'Use carefully for grit or tension.'
+}
+
+function melodyRoleWeight(role: MelodyPadRole): number {
+  if (role === 'home') return 0
+  if (role === 'strong') return 1
+  if (role === 'safe') return 2
+  if (role === 'passing') return 3
+  return 4
+}
+
+function pitchClassPads(targetMidi: number, window: PitchWindow): { pad: PadNumber; midi: number }[] {
+  const targetClass = positiveMod(targetMidi, 12)
+  return PAD_NUMBERS.map((pad) => ({
+    pad,
+    midi: padToMidi(window.sampleRootMidi, window.originalPitchPad, pad),
+  })).filter((option) => positiveMod(option.midi, 12) === targetClass)
+}
+
+function bestPitchClassPad(targetMidi: number, window: PitchWindow): { pad: PadNumber; midi: number } | null {
+  return (
+    pitchClassPads(targetMidi, window).sort((a, b) => Math.abs(a.midi - window.sampleRootMidi) - Math.abs(b.midi - window.sampleRootMidi) || a.pad - b.pad)[0] ?? null
+  )
 }
 
 function positiveMod(value: number, divisor: number): number {

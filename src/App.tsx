@@ -24,12 +24,15 @@ import {
   SCALE_DEFINITIONS,
   type ScaleType,
   analyzeSixteenLevelsChord,
+  buildProgressionPlaybook,
   createPitchWindow,
   createTemplatePattern,
   describeChord,
   formatSemitoneShift,
+  getBassPadRecipe,
   getDiatonicChords,
   getChordDefinition,
+  getMelodyPadRoles,
   getScaleDefinition,
   getScaleNotes,
   gridSteps,
@@ -41,11 +44,26 @@ import {
   pitchClass,
   rankLabel,
   shortestPitchShift,
+  suggestNextChords,
   toggleGridEvent,
 } from './lib/music'
-import type { ChordQualityId, ChordShape, ChordStep, PadNumber, Pattern, StudioProject } from './types'
+import type {
+  AudioFeel,
+  BassRecipe,
+  ChordQualityId,
+  ChordShape,
+  ChordStep,
+  InstrumentPreset,
+  MelodyPad,
+  MelodyPadRole,
+  NextChordSuggestion,
+  PadNumber,
+  Pattern,
+  ProgressionPlaybookStep,
+  StudioProject,
+} from './types'
 
-type ViewId = 'studio' | 'chordPads' | 'chords' | 'levels' | 'groove' | 'library'
+type ViewId = 'studio' | 'chordPads' | 'chords' | 'melodies' | 'levels' | 'groove' | 'library'
 type ChordPaletteMode = 'triads' | 'sevenths' | 'colors'
 type PadHighlight = {
   isSafe: boolean
@@ -53,13 +71,30 @@ type PadHighlight = {
   isChord: boolean
   isOriginal: boolean
   chordRole?: string
+  melodyRole?: MelodyPadRole
 }
 
 const VIEW_ITEMS: { id: ViewId; label: string; icon: typeof Music }[] = [
   { id: 'studio', label: 'Home', icon: Music },
   { id: 'chords', label: 'Chords', icon: SlidersHorizontal },
+  { id: 'melodies', label: 'Melodies', icon: Music },
   { id: 'levels', label: '16 Levels', icon: Square },
   { id: 'library', label: 'Library', icon: Library },
+]
+
+const AUDIO_PRESETS: { value: InstrumentPreset; label: string }[] = [
+  { value: 'warmKeys', label: 'Warm Keys' },
+  { value: 'lushPad', label: 'Lush Pad' },
+  { value: 'dustyEp', label: 'Dusty EP' },
+  { value: 'softPluck', label: 'Soft Pluck' },
+  { value: 'deepBass', label: 'Deep Bass' },
+  { value: 'cleanSine', label: 'Clean Sine' },
+]
+
+const AUDIO_FEELS: { value: AudioFeel; label: string }[] = [
+  { value: 'tight', label: 'Tight' },
+  { value: 'natural', label: 'Natural' },
+  { value: 'loose', label: 'Loose' },
 ]
 
 const GROOVE_LANES = [
@@ -90,6 +125,8 @@ function App() {
   const [gridResolution, setGridResolution] = useState(16)
   const [previewEnabled, setPreviewEnabled] = useState(true)
   const [audioReady, setAudioReady] = useState(false)
+  const [instrumentPreset, setInstrumentPreset] = useState<InstrumentPreset>('warmKeys')
+  const [audioFeel, setAudioFeel] = useState<AudioFeel>('natural')
   const [savedMessage, setSavedMessage] = useState('Local project ready')
   const audioRef = useRef<StudioAudio | null>(null)
 
@@ -112,6 +149,17 @@ function App() {
   const pitchWindow = useMemo(() => createPitchWindow(sampleRootMidi, originalPad), [sampleRootMidi, originalPad])
   const scaleNotes = useMemo(() => getScaleNotes(keyRoot, scaleType), [keyRoot, scaleType])
   const scaleDefinition = useMemo(() => getScaleDefinition(scaleType), [scaleType])
+  const melodyPads = useMemo(() => getMelodyPadRoles(scaleNotes, selectedShape, pitchWindow), [pitchWindow, scaleNotes, selectedShape])
+  const melodyHighlights = useMemo(() => buildMelodyHighlights(melodyPads, originalPad), [melodyPads, originalPad])
+  const nextChordSuggestions = useMemo(
+    () => suggestNextChords(progression.steps[progression.steps.length - 1] ?? null, keyRoot, scaleType),
+    [keyRoot, progression.steps, scaleType],
+  )
+  const selectedBassRecipes = useMemo(
+    () => getBassPadRecipe({ id: 'selected', root: chordRoot, quality: chordQuality, durationTicks: BAR_TICKS }, null, pitchWindow),
+    [chordQuality, chordRoot, pitchWindow],
+  )
+  const progressionPlaybook = useMemo(() => buildProgressionPlaybook(progressionShapes, scaleNotes, pitchWindow), [pitchWindow, progressionShapes, scaleNotes])
   const chordToneRoles = useMemo(() => {
     const definition = getChordDefinition(chordQuality)
     const intervals = [...definition.coreIntervals, ...definition.colorIntervals]
@@ -165,13 +213,23 @@ function App() {
     let alive = true
     const storageTimer = window.setTimeout(() => {
       import('./lib/storage')
-        .then(({ db, ensureDefaultRecords }) => ensureDefaultRecords().then(() => db.projects.get('local-main')))
-        .then((storedProject) => {
-          if (alive && storedProject) {
+        .then(({ db, ensureDefaultRecords }) => ensureDefaultRecords().then(() => Promise.all([db.projects.get('local-main'), db.settings.get('settings')])))
+        .then(([storedProject, storedSettings]) => {
+          if (!alive) {
+            return
+          }
+
+          if (storedProject) {
             setProject(storedProject)
             const setup = storedProject.sixteenLevelsSetups[0]
             setSampleRootMidi(setup.sampleRootMidi)
             setOriginalPad(setup.originalPitchPad)
+          }
+
+          if (storedSettings) {
+            setPreviewEnabled(storedSettings.previewEnabled)
+            setInstrumentPreset(storedSettings.instrumentPreset ?? 'warmKeys')
+            setAudioFeel(storedSettings.audioFeel ?? 'natural')
           }
         })
         .catch(() => setSavedMessage('Storage is unavailable in this browser'))
@@ -189,6 +247,11 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    audioRef.current?.setInstrumentPreset(instrumentPreset)
+    audioRef.current?.setAudioFeel(audioFeel)
+  }, [audioFeel, instrumentPreset])
+
   async function ensureAudio() {
     if (!audioRef.current) {
       const { createStudioAudio } = await import('./lib/audio')
@@ -196,6 +259,8 @@ function App() {
     }
 
     await audioRef.current.start()
+    audioRef.current.setInstrumentPreset(instrumentPreset)
+    audioRef.current.setAudioFeel(audioFeel)
     setAudioReady(true)
     return audioRef.current
   }
@@ -208,7 +273,7 @@ function App() {
 
     if (previewEnabled) {
       const audio = await ensureAudio()
-      audio.playMidiNotes(notes, '2n', 0.78, strumMs)
+      audio.playMidiNotes(notes, { duration: '2n', velocity: 0.78, strumMs })
     }
   }
 
@@ -216,7 +281,7 @@ function App() {
     const midi = padToMidi(sampleRootMidi, originalPad, pad)
     if (previewEnabled) {
       const audio = await ensureAudio()
-      audio.playMidiNotes([midi], '8n', 0.72)
+      audio.playMidiNotes([midi], { duration: '8n', velocity: 0.72, strumMs: 0 })
     }
   }
 
@@ -232,8 +297,10 @@ function App() {
     setTargetNote(root)
   }
 
-  function animatePads(pads: PadNumber[], mode: 'scale' | 'chord') {
-    setHighlightMode(mode)
+  function animatePads(pads: PadNumber[], mode: 'scale' | 'chord' | 'melody') {
+    if (mode !== 'melody') {
+      setHighlightMode(mode)
+    }
     setAnimatedPads([])
     pads.forEach((pad, index) => {
       window.setTimeout(() => setAnimatedPads([pad]), index * 170)
@@ -335,7 +402,7 @@ function App() {
   }
 
   async function saveLocalProject() {
-    const { saveProject } = await import('./lib/storage')
+    const { saveProject, saveSettings } = await import('./lib/storage')
     const nextProject = {
       ...project,
       tempo: project.tempo,
@@ -343,7 +410,17 @@ function App() {
       sixteenLevelsSetups: [{ sampleRootMidi, originalPitchPad: originalPad, targetKey: `${keyRoot} ${scaleType}` }],
       updatedAt: new Date().toISOString(),
     }
-    await saveProject(nextProject)
+    await Promise.all([
+      saveProject(nextProject),
+      saveSettings({
+        id: 'settings',
+        previewEnabled,
+        lastPadMapId: nextProject.padMapId,
+        instrumentPreset,
+        audioFeel,
+        updatedAt: new Date().toISOString(),
+      }),
+    ])
     setProject(nextProject)
     setSavedMessage('Saved locally')
   }
@@ -371,6 +448,12 @@ function App() {
     const restored = await db.projects.get('local-main')
     if (restored) {
       setProject(restored)
+    }
+    const restoredSettings = await db.settings.get('settings')
+    if (restoredSettings) {
+      setPreviewEnabled(restoredSettings.previewEnabled)
+      setInstrumentPreset(restoredSettings.instrumentPreset ?? 'warmKeys')
+      setAudioFeel(restoredSettings.audioFeel ?? 'natural')
     }
     setSavedMessage('Library imported')
   }
@@ -420,6 +503,8 @@ function App() {
             audioReady={audioReady}
             selectedShape={selectedShape}
             previewEnabled={previewEnabled}
+            instrumentPreset={instrumentPreset}
+            audioFeel={audioFeel}
             pitchWindow={pitchWindow}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
@@ -452,6 +537,8 @@ function App() {
             onAnimateChordPads={() => animatePads(chordPads, 'chord')}
             onPresetJungle={applyJunglePreset}
             onTogglePreview={() => setPreviewEnabled((value) => !value)}
+            onInstrumentPresetChange={setInstrumentPreset}
+            onAudioFeelChange={setAudioFeel}
             onAudition={() => auditionShape(selectedShape)}
             onPlayPad={playSinglePad}
           />
@@ -468,6 +555,9 @@ function App() {
             diatonicChords={diatonicChords}
             selectedShape={selectedShape}
             progressionShapes={progressionShapes}
+            nextChordSuggestions={nextChordSuggestions}
+            bassRecipes={selectedBassRecipes}
+            playbook={progressionPlaybook}
             pitchWindow={pitchWindow}
             chordShapeHighlights={chordShapeHighlights}
             animatedPads={animatedPads}
@@ -483,6 +573,26 @@ function App() {
             onClearProgression={clearProgression}
             onAnimate={() => animatePads(selectedShape.pads.map((pad) => pad.pad), 'chord')}
             onPlayPad={playSinglePad}
+          />
+        )}
+
+        {activeView === 'melodies' && (
+          <MelodiesView
+            keyRoot={keyRoot}
+            scaleType={scaleType}
+            sampleRootMidi={sampleRootMidi}
+            originalPad={originalPad}
+            selectedShape={selectedShape}
+            pitchWindow={pitchWindow}
+            melodyPads={melodyPads}
+            melodyHighlights={melodyHighlights}
+            animatedPads={animatedPads}
+            onKeyRootChange={setKeyRoot}
+            onScaleTypeChange={setScaleType}
+            onSampleRootChange={setSampleRootMidi}
+            onOriginalPadChange={setOriginalPad}
+            onPlayPad={playSinglePad}
+            onAnimate={(pads) => animatePads(pads, 'melody')}
           />
         )}
 
@@ -562,6 +672,8 @@ interface StudioViewProps {
   audioReady: boolean
   selectedShape: ChordShape
   previewEnabled: boolean
+  instrumentPreset: InstrumentPreset
+  audioFeel: AudioFeel
   pitchWindow: ReturnType<typeof createPitchWindow>
   sampleRootMidi: number
   originalPad: PadNumber
@@ -594,6 +706,8 @@ interface StudioViewProps {
   onAnimateChordPads: () => void
   onPresetJungle: () => void
   onTogglePreview: () => void
+  onInstrumentPresetChange: (preset: InstrumentPreset) => void
+  onAudioFeelChange: (feel: AudioFeel) => void
   onAudition: () => void
   onPlayPad: (pad: PadNumber) => void
 }
@@ -602,6 +716,8 @@ function StudioView({
   audioReady,
   selectedShape,
   previewEnabled,
+  instrumentPreset,
+  audioFeel,
   pitchWindow,
   sampleRootMidi,
   originalPad,
@@ -634,6 +750,8 @@ function StudioView({
   onAnimateChordPads,
   onPresetJungle,
   onTogglePreview,
+  onInstrumentPresetChange,
+  onAudioFeelChange,
   onAudition,
   onPlayPad,
 }: StudioViewProps) {
@@ -754,6 +872,29 @@ function StudioView({
             <span>Browser audio</span>
           </button>
         </div>
+        <ControlRow label="Sound">
+          <select value={instrumentPreset} onChange={(event) => onInstrumentPresetChange(event.target.value as InstrumentPreset)}>
+            {AUDIO_PRESETS.map((preset) => (
+              <option key={preset.value} value={preset.value}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </ControlRow>
+        <ControlRow label="Audio feel">
+          <div className="mode-strip">
+            {AUDIO_FEELS.map((feel) => (
+              <button
+                type="button"
+                key={feel.value}
+                className={audioFeel === feel.value ? 'mode-button active' : 'mode-button'}
+                onClick={() => onAudioFeelChange(feel.value)}
+              >
+                {feel.label}
+              </button>
+            ))}
+          </div>
+        </ControlRow>
         <button type="button" className="primary-action" onClick={onAudition}>
           <Play size={18} />
           <span>Audition shape</span>
@@ -761,6 +902,8 @@ function StudioView({
         <StatusStack
           items={[
             { label: 'Preview', value: previewEnabled ? 'Browser audio on' : 'Muted' },
+            { label: 'Sound', value: audioPresetLabel(instrumentPreset) },
+            { label: 'Feel', value: audioFeelLabel(audioFeel) },
             { label: 'Window', value: `${midiToNoteWithOctave(pitchWindow.minMidi)} to ${midiToNoteWithOctave(pitchWindow.maxMidi)}` },
             { label: 'Pads', value: selectedShape.pads.map((pad) => pad.pad).join(', ') || 'No full shape' },
           ]}
@@ -1103,6 +1246,9 @@ interface ChordsViewProps {
   diatonicChords: { id: string; root: string; quality: ChordQualityId; durationTicks: number }[]
   selectedShape: ChordShape
   progressionShapes: { step: ChordStep; shape: ChordShape }[]
+  nextChordSuggestions: NextChordSuggestion[]
+  bassRecipes: BassRecipe[]
+  playbook: ProgressionPlaybookStep[]
   pitchWindow: ReturnType<typeof createPitchWindow>
   chordShapeHighlights: Record<PadNumber, PadHighlight>
   animatedPads: PadNumber[]
@@ -1130,6 +1276,9 @@ function ChordsView({
   diatonicChords,
   selectedShape,
   progressionShapes,
+  nextChordSuggestions,
+  bassRecipes,
+  playbook,
   pitchWindow,
   chordShapeHighlights,
   animatedPads,
@@ -1156,6 +1305,7 @@ function ChordsView({
   const playablePads = selectedShape.pads.slice().sort((a, b) => a.pad - b.pad)
   const padRecipe = playablePads.map((pad) => `P${pad.pad}`).join(' + ')
   const missingEssentials = selectedShape.missing.filter((tone) => getChordDefinition(chordQuality).coreIntervals.includes(tone.interval))
+  const coachStages = buildCoachStageSuggestions(diatonicChords, scaleType, paletteMode, sampleRootMidi, originalPad)
 
   function selectChord(root: string, quality: ChordQualityId) {
     onRootChange(root)
@@ -1253,8 +1403,58 @@ function ChordsView({
         </div>
       </div>
 
+      <div className="panel chord-finder-coach">
+        <PanelHeader kicker="3. Coach" title="Build a loop" value="guided" />
+        <Guide title="Use plain musical jobs">
+          <p>Pick the job you need next. The app shows the chord and pads, so you do not need to know the theory first.</p>
+        </Guide>
+        <div className="coach-stage-grid">
+          {coachStages.map((stage) => (
+            <button
+              type="button"
+              className="suggestion coach-card"
+              key={stage.id}
+              onClick={() => {
+                selectChord(stage.root, stage.quality)
+                onAddChord(stage.root, stage.quality)
+              }}
+              disabled={stage.shape.pads.length === 0}
+            >
+              <span>{stage.stage}</span>
+              <strong>{describeChord(stage.root, stage.quality)}</strong>
+              <small>{stage.label} / {stage.pads}</small>
+            </button>
+          ))}
+        </div>
+
+        <h3 className="mini-heading">What next?</h3>
+        <div className="next-chord-grid">
+          {nextChordSuggestions.map((suggestion) => {
+            const shape = analyzeSixteenLevelsChord(suggestion.root, suggestion.quality, sampleRootMidi, originalPad).shapes[0]
+            const pads = shape.pads.map((pad) => `P${pad.pad}`).join(' + ')
+            return (
+              <button
+                type="button"
+                className="suggestion next-card"
+                key={suggestion.id}
+                onClick={() => {
+                  selectChord(suggestion.root, suggestion.quality)
+                  onAddChord(suggestion.root, suggestion.quality)
+                }}
+                disabled={shape.pads.length === 0}
+              >
+                <span>{suggestion.category} / {suggestion.degree.number}</span>
+                <strong>{describeChord(suggestion.root, suggestion.quality)}</strong>
+                <small>{suggestion.reason}</small>
+                <b>{pads || 'retune'}</b>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       <div className="panel chord-finder-pads">
-        <PanelHeader kicker="3. Pads" title={padRecipe || 'No playable recipe'} value={rankLabel(selectedShape.rank)} />
+        <PanelHeader kicker="4. Pads" title={padRecipe || 'No playable recipe'} value={rankLabel(selectedShape.rank)} />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -1276,7 +1476,7 @@ function ChordsView({
       </div>
 
       <aside className="panel chord-finder-recipe">
-        <PanelHeader kicker="4. Recipe" title={describeChord(chordRoot, chordQuality)} value={padRecipe || 'Try retune'} />
+        <PanelHeader kicker="5. Recipe" title={describeChord(chordRoot, chordQuality)} value={padRecipe || 'Try retune'} />
         <div className="result-stack">
           <div className="result-box">
             <strong>Press:</strong> {padRecipe || 'No pads fit this chord in the current 16 Levels window.'}
@@ -1321,7 +1521,7 @@ function ChordsView({
       </aside>
 
       <div className="panel chord-finder-progression">
-        <PanelHeader kicker="5. Progression pads" title="Selected chords" value={`${progressionShapes.length} chords`} />
+        <PanelHeader kicker="6. Progression" title="Selected chords" value={`${progressionShapes.length} chords`} />
         <Guide title="Play the progression on the MPC">
           <p>Each row is one chord in order. Set 16 Levels the same way, then press the listed pads for each chord.</p>
         </Guide>
@@ -1358,6 +1558,34 @@ function ChordsView({
           <button type="button" className="secondary-action" onClick={onClearProgression}>
             Clear progression
           </button>
+        )}
+
+        <h3 className="mini-heading">Bass helper</h3>
+        <div className="recipe-grid">
+          {bassRecipes.map((recipe) => (
+            <div className={`recipe-card ${recipe.status}`} key={recipe.id}>
+              <strong>{recipe.label}</strong>
+              <span>{recipe.instruction}</span>
+              <b>{recipe.pads.length ? recipe.pads.map((pad) => `P${pad}`).join(' -> ') : recipe.status}</b>
+            </div>
+          ))}
+        </div>
+
+        <h3 className="mini-heading">Playbook</h3>
+        {playbook.length === 0 ? (
+          <div className="empty-state">Add a few chords and this becomes a step-by-step chord, bass, and melody recipe.</div>
+        ) : (
+          <div className="playbook-list">
+            {playbook.map((step, index) => (
+              <div className="playbook-card" key={step.id}>
+                <span className="progression-index">{index + 1}</span>
+                <strong>{step.chordName}</strong>
+                <small>Chord: {step.chordPads.length ? step.chordPads.map((pad) => `P${pad}`).join(' + ') : 'retune'}</small>
+                <small>Bass: {step.bass.instruction}</small>
+                <small>Melody: {step.melodyPads.map((pad) => `P${pad.pad}`).join(' -> ') || 'try the Melodies page'}</small>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </section>
@@ -1405,6 +1633,202 @@ function degreeQuality(index: number, scaleType: ScaleType, mode: ChordPaletteMo
   const majorSevenths: ChordQualityId[] = ['maj7', 'min7', 'min7', 'maj7', 'dom7', 'min7', 'dim']
   const minorSevenths: ChordQualityId[] = ['min7', 'dim', 'maj7', 'min7', 'min7', 'maj7', 'dom7']
   return (isMinorish ? minorSevenths : majorSevenths)[index] ?? 'maj7'
+}
+
+function buildCoachStageSuggestions(
+  diatonicChords: { root: string; quality: ChordQualityId }[],
+  scaleType: ScaleType,
+  paletteMode: ChordPaletteMode,
+  sampleRootMidi: number,
+  originalPad: PadNumber,
+) {
+  return [
+    { stage: 'Start', degreeIndex: 0, label: 'home' },
+    { stage: 'Add movement', degreeIndex: 5, label: 'emotional' },
+    { stage: 'Add tension', degreeIndex: 4, label: 'pull home' },
+    { stage: 'Resolve/loop', degreeIndex: 3, label: 'lift' },
+  ].map((item) => {
+    const chord = diatonicChords[item.degreeIndex] ?? diatonicChords[0]
+    const quality = degreeQuality(item.degreeIndex, scaleType, paletteMode)
+    const shape = analyzeSixteenLevelsChord(chord.root, quality, sampleRootMidi, originalPad).shapes[0]
+    return {
+      id: `${item.stage}-${chord.root}-${quality}`,
+      stage: item.stage,
+      label: item.label,
+      root: chord.root,
+      quality,
+      shape,
+      pads: shape.pads.length ? shape.pads.map((pad) => `P${pad.pad}`).join(' + ') : 'retune',
+    }
+  })
+}
+
+interface MelodiesViewProps {
+  keyRoot: string
+  scaleType: ScaleType
+  sampleRootMidi: number
+  originalPad: PadNumber
+  selectedShape: ChordShape
+  pitchWindow: ReturnType<typeof createPitchWindow>
+  melodyPads: MelodyPad[]
+  melodyHighlights: Record<PadNumber, PadHighlight>
+  animatedPads: PadNumber[]
+  onKeyRootChange: (root: string) => void
+  onScaleTypeChange: (scaleType: ScaleType) => void
+  onSampleRootChange: (midi: number) => void
+  onOriginalPadChange: (pad: PadNumber) => void
+  onPlayPad: (pad: PadNumber) => void
+  onAnimate: (pads: PadNumber[]) => void
+}
+
+function MelodiesView({
+  keyRoot,
+  scaleType,
+  sampleRootMidi,
+  originalPad,
+  selectedShape,
+  pitchWindow,
+  melodyPads,
+  melodyHighlights,
+  animatedPads,
+  onKeyRootChange,
+  onScaleTypeChange,
+  onSampleRootChange,
+  onOriginalPadChange,
+  onPlayPad,
+  onAnimate,
+}: MelodiesViewProps) {
+  const sampleNote = midiToNoteName(sampleRootMidi)
+  const scaleLabel = getScaleDefinition(scaleType).label
+  const phraseRecipes = buildMelodyPhraseRecipes(melodyPads)
+  const roleCounts = melodyPads.reduce(
+    (counts, pad) => {
+      counts[pad.role] += 1
+      return counts
+    },
+    { home: 0, strong: 0, safe: 0, passing: 0, tension: 0 } as Record<MelodyPadRole, number>,
+  )
+
+  return (
+    <section className="melody-layout">
+      <aside className="panel melody-setup">
+        <PanelHeader kicker="1. Map" title="Melody setup" value={`${keyRoot} ${scaleLabel}`} />
+        <Guide title="Find notes without theory">
+          <p>Use home and strong pads for anchors, safe pads for hooks, passing pads for movement, and tension pads only when you want grit.</p>
+        </Guide>
+        <div className="helper-mini-row">
+          <ControlRow label="Track key">
+            <select value={keyRoot} onChange={(event) => onKeyRootChange(event.target.value)}>
+              {ROOT_NOTES.map((note) => (
+                <option key={note} value={note}>
+                  {note}
+                </option>
+              ))}
+            </select>
+          </ControlRow>
+          <ControlRow label="Scale">
+            <select value={scaleType} onChange={(event) => onScaleTypeChange(event.target.value as ScaleType)}>
+              {SCALE_DEFINITIONS.map((scale) => (
+                <option key={scale.id} value={scale.id}>
+                  {scale.label}
+                </option>
+              ))}
+            </select>
+          </ControlRow>
+        </div>
+        <div className="helper-mini-row">
+          <ControlRow label="Sample note">
+            <select value={sampleNote} onChange={(event) => onSampleRootChange(noteNameToMidi(event.target.value, 3))}>
+              {ROOT_NOTES.map((note) => (
+                <option key={note} value={note}>
+                  {note}
+                </option>
+              ))}
+            </select>
+          </ControlRow>
+          <ControlRow label="Original pad">
+            <select value={originalPad} onChange={(event) => onOriginalPadChange(Number(event.target.value) as PadNumber)}>
+              {PAD_NUMBERS.map((pad) => (
+                <option key={pad} value={pad}>
+                  Pad {pad}
+                </option>
+              ))}
+            </select>
+          </ControlRow>
+        </div>
+        <StatusStack
+          items={[
+            { label: 'Home', value: `${roleCounts.home} pads` },
+            { label: 'Strong', value: `${roleCounts.strong} pads` },
+            { label: 'Safe', value: `${roleCounts.safe} pads` },
+            { label: 'Passing', value: `${roleCounts.passing} pads` },
+          ]}
+        />
+      </aside>
+
+      <div className="panel melody-pad-panel">
+        <PanelHeader kicker="2. Pads" title="Melody notes" value="roles" />
+        <PadGrid
+          selectedShape={selectedShape}
+          pitchWindow={pitchWindow}
+          padHighlights={melodyHighlights}
+          highlightMode="all"
+          animatedPads={animatedPads}
+          onPlayPad={onPlayPad}
+        />
+        <div className="legend helper-legend">
+          <span>Gold = home</span>
+          <span>Rose = strong</span>
+          <span>Mint = safe</span>
+          <span>Paper = passing</span>
+        </div>
+      </div>
+
+      <aside className="panel melody-phrases">
+        <PanelHeader kicker="3. Phrases" title="Try these shapes" value={`${phraseRecipes.length} ideas`} />
+        <div className="phrase-list">
+          {phraseRecipes.map((phrase) => (
+            <button type="button" className="suggestion phrase-card" key={phrase.name} onClick={() => onAnimate(phrase.pads)} disabled={phrase.pads.length === 0}>
+              <span>{phrase.name}</span>
+              <strong>{phrase.pads.map((pad) => `P${pad}`).join(' -> ') || 'needs more safe pads'}</strong>
+              <small>{phrase.hint}</small>
+            </button>
+          ))}
+        </div>
+      </aside>
+    </section>
+  )
+}
+
+function buildMelodyPhraseRecipes(melodyPads: MelodyPad[]): { name: string; pads: PadNumber[]; hint: string }[] {
+  const home = melodyPads.find((pad) => pad.role === 'home')
+  const strong = melodyPads.filter((pad) => pad.role === 'strong')
+  const safe = melodyPads.filter((pad) => pad.role === 'safe')
+  const passing = melodyPads.filter((pad) => pad.role === 'passing')
+  const pick = (...groups: MelodyPad[][]) => groups.flat().filter(Boolean)
+
+  return [
+    {
+      name: 'Simple hook',
+      pads: pick(home ? [home] : [], strong, safe).slice(0, 4).map((pad) => pad.pad),
+      hint: 'Start home, touch a strong note, then come back simple.',
+    },
+    {
+      name: 'Call and response',
+      pads: pick(strong.slice(0, 2), safe.slice(0, 2)).map((pad) => pad.pad),
+      hint: 'Play the first two pads, pause, then answer with the next two.',
+    },
+    {
+      name: 'Dark turn',
+      pads: pick(passing.slice(0, 1), strong.slice(0, 2), home ? [home] : []).map((pad) => pad.pad),
+      hint: 'Use the passing note quickly, then land on something stable.',
+    },
+    {
+      name: 'Resolve home',
+      pads: pick(safe.slice(0, 2), strong.slice(0, 1), home ? [home] : []).map((pad) => pad.pad),
+      hint: 'A small phrase that clearly lands back home.',
+    },
+  ]
 }
 
 interface LevelsViewProps {
@@ -1644,6 +2068,31 @@ function positiveInterval(interval: number): number {
   return ((interval % 12) + 12) % 12
 }
 
+function buildMelodyHighlights(melodyPads: MelodyPad[], originalPad: PadNumber): Record<PadNumber, PadHighlight> {
+  return melodyPads.reduce(
+    (map, pad) => {
+      map[pad.pad] = {
+        isSafe: pad.role === 'safe' || pad.role === 'passing',
+        isRoot: pad.role === 'home',
+        isChord: pad.role === 'strong',
+        isOriginal: pad.pad === originalPad,
+        chordRole: pad.role,
+        melodyRole: pad.role,
+      }
+      return map
+    },
+    {} as Record<PadNumber, PadHighlight>,
+  )
+}
+
+function audioPresetLabel(preset: InstrumentPreset): string {
+  return AUDIO_PRESETS.find((option) => option.value === preset)?.label ?? 'Warm Keys'
+}
+
+function audioFeelLabel(feel: AudioFeel): string {
+  return AUDIO_FEELS.find((option) => option.value === feel)?.label ?? 'Natural'
+}
+
 interface LibraryViewProps {
   project: StudioProject
   savedMessage: string
@@ -1732,6 +2181,7 @@ function PadGrid({ selectedShape, pitchWindow, padHighlights, highlightMode = 'c
           shouldShowScale && highlight?.isSafe ? 'safe' : '',
           highlight?.isRoot ? 'root' : '',
           shouldShowChord && highlight?.isChord ? 'chord' : '',
+          highlight?.melodyRole ? `melody-${highlight.melodyRole}` : '',
           animatedPads.includes(pad) ? 'pulse' : '',
         ]
           .filter(Boolean)
@@ -1747,7 +2197,7 @@ function PadGrid({ selectedShape, pitchWindow, padHighlights, highlightMode = 'c
           >
             <span className="pad-number">{pad}</span>
             <strong>{midiToNoteName(midi)}</strong>
-            <small>{highlight?.chordRole && shouldShowChord ? highlight.chordRole : meta}</small>
+            <small>{highlight?.chordRole && (shouldShowChord || highlight?.melodyRole) ? highlight.chordRole : meta}</small>
           </button>
         )
       })}

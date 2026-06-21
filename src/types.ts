@@ -139,6 +139,54 @@ export interface ChordProgression {
   steps: ChordStep[]
 }
 
+export type NextChordCategory = 'Safe' | 'Moodier' | 'Tension'
+
+export interface ChordDegree {
+  index: number
+  number: string
+  numeral: string
+  use: string
+}
+
+export interface NextChordSuggestion {
+  id: string
+  category: NextChordCategory
+  degree: ChordDegree
+  root: string
+  quality: ChordQualityId
+  label: string
+  reason: string
+}
+
+export type MelodyPadRole = 'home' | 'strong' | 'safe' | 'passing' | 'tension'
+
+export interface MelodyPad {
+  pad: PadNumber
+  midi: number
+  noteName: string
+  role: MelodyPadRole
+  reason: string
+}
+
+export interface BassRecipe {
+  id: string
+  label: string
+  pads: PadNumber[]
+  instruction: string
+  status: 'ready' | 'retune' | 'missing'
+}
+
+export interface ProgressionPlaybookStep {
+  id: string
+  chordName: string
+  chordPads: PadNumber[]
+  bass: BassRecipe
+  melodyPads: MelodyPad[]
+}
+
+export type InstrumentPreset = 'warmKeys' | 'lushPad' | 'dustyEp' | 'softPluck' | 'deepBass' | 'cleanSine'
+export type AudioFeel = 'tight' | 'natural' | 'loose'
+
 export interface StudioProject {
   schemaVersion: 1
   id: string
@@ -156,5 +204,7 @@ export interface AppSettings {
   id: 'settings'
   previewEnabled: boolean
   lastPadMapId: string
+  instrumentPreset: InstrumentPreset
+  audioFeel: AudioFeel
   updatedAt: string
 }
