@@ -3,16 +3,16 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/mpc-studio/' : '/',
+  base: process.env.GITHUB_ACTIONS ? '/mpc-samplex/' : '/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'MPC Studio',
-        short_name: 'MPC Studio',
-        description: 'Touch-first theory, 16 Levels, groove, and browser audio companion for the Akai MPC Sample.',
+        name: 'MPC Samplex',
+        short_name: 'MPC Samplex',
+        description: 'Mobile-first 16 Levels theory, chord, scale, and repitch helper for the Akai MPC Sample.',
         theme_color: '#15120f',
         background_color: '#15120f',
         display: 'standalone',

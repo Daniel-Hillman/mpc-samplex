@@ -2,7 +2,7 @@ import Dexie, { type Table } from 'dexie'
 import type { AppSettings, PadMap, StudioProject } from '../types'
 import { createDefaultPadMap } from './music'
 
-class MPCStudioDatabase extends Dexie {
+class MPCSamplexDatabase extends Dexie {
   projects!: Table<StudioProject, string>
   padMaps!: Table<PadMap, string>
   settings!: Table<AppSettings, string>
@@ -17,7 +17,7 @@ class MPCStudioDatabase extends Dexie {
   }
 }
 
-export const db = new MPCStudioDatabase()
+export const db = new MPCSamplexDatabase()
 
 export async function ensureDefaultRecords() {
   const padMap = await db.padMaps.get('factory-chromatic')

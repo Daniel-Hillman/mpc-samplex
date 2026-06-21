@@ -1,13 +1,13 @@
-# MPC Studio
+# MPC Samplex
 
-Touch-first React/Vite PWA companion for the Akai MPC Sample.
+Mobile-first React/Vite PWA companion for the Akai MPC Sample.
 
 ## What is built
 
-- Browser audio preview for chords, scales, pad recipes, one-shot repitching, and grooves.
+- Browser audio preview for chords, scales, pad recipes, and one-shot repitching.
 - Smart 16 Levels chord finder that respects the 16-pad semitone window.
 - Pad-level octave escape suggestions for MPC semitone retune workarounds.
-- Chord builder, in-key palette, progression lane, groove sequencer, note view, and local library import/export.
+- Chord builder, in-key palette, progression lane, note view, and local library import/export.
 - PWA-ready static deployment for GitHub Pages.
 
 ## Commands

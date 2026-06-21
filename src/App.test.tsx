@@ -2,11 +2,11 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
-describe('MPC Studio shell', () => {
+describe('MPC Samplex shell', () => {
   it('renders the touch-first studio surface with browser audio preview', () => {
     render(<App />)
 
-    expect(screen.getByRole('heading', { name: 'MPC Studio' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'MPC Samplex' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /16 Levels/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()

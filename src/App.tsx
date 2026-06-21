@@ -56,7 +56,7 @@ type PadHighlight = {
 }
 
 const VIEW_ITEMS: { id: ViewId; label: string; icon: typeof Music }[] = [
-  { id: 'studio', label: 'Studio', icon: Music },
+  { id: 'studio', label: 'Home', icon: Music },
   { id: 'chords', label: 'Chords', icon: SlidersHorizontal },
   { id: 'levels', label: '16 Levels', icon: Square },
   { id: 'library', label: 'Library', icon: Library },
@@ -355,7 +355,7 @@ function App() {
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
-    anchor.download = 'mpc-studio-library.json'
+    anchor.download = 'mpc-samplex-library.json'
     anchor.click()
     URL.revokeObjectURL(url)
     setSavedMessage('Library exported')
@@ -381,7 +381,7 @@ function App() {
         <div className="brand-block">
           <div className="brand-mark">MPC</div>
           <div>
-            <h1>MPC Studio</h1>
+            <h1>MPC Samplex</h1>
             <p>{describeChord(chordRoot, chordQuality)} over {midiToNoteWithOctave(sampleRootMidi)} - {project.tempo} BPM</p>
           </div>
         </div>
@@ -397,7 +397,7 @@ function App() {
         )}
       </header>
 
-      <nav className="view-tabs" aria-label="Studio sections">
+      <nav className="view-tabs" aria-label="Samplex sections">
         {VIEW_ITEMS.map((item) => {
           const Icon = item.icon
           return (
