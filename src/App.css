@@ -79,6 +79,7 @@
 .secondary-action,
 .file-action,
 .mode-button,
+.home-action-card,
 .chord-chip,
 .shape-row,
 .suggestion,
@@ -107,6 +108,7 @@
 .secondary-action:hover,
 .file-action:hover,
 .mode-button:hover,
+.home-action-card:hover,
 .chord-chip:hover,
 .shape-row:hover,
 .suggestion:hover,
@@ -125,6 +127,7 @@
 .secondary-action:focus-visible,
 .file-action:focus-visible,
 .mode-button:focus-visible,
+.home-action-card:focus-visible,
 .chord-chip:focus-visible,
 .shape-row:focus-visible,
 .suggestion:focus-visible,
@@ -185,6 +188,7 @@ main {
   padding: clamp(1rem, 3vw, 2rem);
 }
 
+.home-layout,
 .studio-grid,
 .chord-finder-layout,
 .melody-layout,
@@ -198,6 +202,35 @@ main {
 .studio-grid {
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.36fr);
   align-items: start;
+}
+
+.home-layout {
+  grid-template-columns: minmax(19rem, 0.74fr) minmax(30rem, 1.22fr) minmax(20rem, 0.74fr);
+  grid-template-areas:
+    "start start setup"
+    "pads pads sound"
+    "now now now";
+  align-items: start;
+}
+
+.home-start {
+  grid-area: start;
+}
+
+.home-setup {
+  grid-area: setup;
+}
+
+.home-pad-panel {
+  grid-area: pads;
+}
+
+.home-sound {
+  grid-area: sound;
+}
+
+.home-now {
+  grid-area: now;
 }
 
 .helper-grid {
@@ -664,6 +697,71 @@ button.toggle.active {
   background: #f4ecdf;
 }
 
+.home-action-grid,
+.home-recipe-grid,
+.home-mode-grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-action-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.home-action-card {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 9rem;
+  border-radius: 4px;
+  padding: 1rem;
+  text-align: left;
+  background: #f4ecdf;
+}
+
+.home-action-card span {
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  min-height: 1.8rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--paper);
+  background: var(--ink);
+  font-family: var(--mono);
+  font-weight: 900;
+}
+
+.home-action-card strong {
+  color: var(--text-strong);
+  font-family: var(--serif);
+  font-size: clamp(1.05rem, 1.4vw, 1.35rem);
+}
+
+.home-action-card small {
+  color: var(--muted);
+}
+
+.home-action-card.quiet {
+  background: #f6efe4;
+}
+
+.home-mode-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-recipe-grid {
+  grid-template-columns: minmax(14rem, 1fr) minmax(14rem, 1fr) minmax(18rem, 1.1fr);
+}
+
+.home-repitch-box {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.home-repitch-box .control-row {
+  margin-bottom: 0;
+}
+
 .status-stack {
   display: grid;
   gap: 0.6rem;
@@ -903,20 +1001,24 @@ button.chord-chip.active span {
   background: #f6efe4;
 }
 
-.progression-recipe-list {
+.progression-flow {
   display: grid;
-  gap: 0.65rem;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(14rem, 1fr);
+  gap: 0.75rem;
   margin-bottom: 0.85rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
 }
 
-.progression-recipe {
+.progression-block {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) minmax(9rem, auto) auto;
   gap: 0.75rem;
-  align-items: center;
   border: 1px solid var(--line);
   border-radius: 4px;
-  padding: 0.75rem;
+  padding: 0.85rem;
   background: #f6efe4;
 }
 
@@ -925,19 +1027,33 @@ button.chord-chip.active span {
   gap: 0.15rem;
 }
 
-.progression-recipe strong {
+.progression-block strong {
   color: var(--text-strong);
 }
 
-.progression-recipe small {
+.progression-block small {
   color: var(--muted);
 }
 
-.progression-recipe b {
+.progression-pad-recipe {
+  display: grid;
+  gap: 0.2rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.65rem;
+  background: #ebe0cf;
+}
+
+.progression-pad-recipe span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.progression-pad-recipe b {
   color: var(--mint);
   font-family: var(--mono);
-  font-size: 0.86rem;
-  text-align: right;
+  font-size: 0.9rem;
 }
 
 .progression-index {
@@ -959,8 +1075,46 @@ button.chord-chip.active span {
 .progression-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 0.4rem;
+}
+
+.mpc-final-recipe {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
+.mpc-setup-strip,
+.mpc-recipe-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.mpc-setup-strip {
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.mpc-recipe-list {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.mpc-recipe-step {
+  display: grid;
+  gap: 0.28rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.85rem;
+  background: #f6efe4;
+}
+
+.mpc-recipe-step strong {
+  color: var(--text-strong);
+}
+
+.mpc-recipe-step small {
+  color: var(--muted);
 }
 
 .escape-stack {
@@ -1176,6 +1330,20 @@ button.mini-pad.active {
 }
 
 @media (max-width: 1120px) {
+  .home-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "start start"
+      "setup sound"
+      "pads pads"
+      "now now";
+  }
+
+  .home-action-grid,
+  .home-recipe-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .chord-finder-layout {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
@@ -1211,6 +1379,7 @@ button.mini-pad.active {
       "pitch pitch";
   }
 
+  .home-layout,
   .studio-grid,
   .chord-finder-layout,
   .melody-layout,
@@ -1221,6 +1390,7 @@ button.mini-pad.active {
   }
 
   .studio-grid .main-surface,
+  .home-layout .home-pad-panel,
   .melody-layout .melody-pad-panel,
   .levels-layout .shape-panel,
   .groove-layout .wide-panel,
@@ -1256,7 +1426,17 @@ button.mini-pad.active {
     min-width: 6.6rem;
   }
 
+  .home-layout {
+    grid-template-areas:
+      "start"
+      "setup"
+      "pads"
+      "sound"
+      "now";
+  }
+
   .studio-grid,
+  .home-layout,
   .helper-grid,
   .chord-finder-layout,
   .melody-layout,
@@ -1304,8 +1484,15 @@ button.mini-pad.active {
   }
 
   .helper-mini-row,
-  .helper-pad-actions {
+  .helper-pad-actions,
+  .home-action-grid,
+  .home-mode-grid,
+  .home-recipe-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-action-card {
+    min-height: 6.8rem;
   }
 
   .pad-grid {
@@ -1320,12 +1507,8 @@ button.mini-pad.active {
     grid-template-columns: 1fr;
   }
 
-  .progression-recipe {
-    grid-template-columns: 1fr;
-  }
-
-  .progression-recipe b {
-    text-align: left;
+  .progression-flow {
+    grid-auto-columns: minmax(13rem, 82vw);
   }
 
   .progression-actions {
