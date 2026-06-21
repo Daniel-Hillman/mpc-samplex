@@ -7,7 +7,6 @@ import {
   Library,
   Music,
   Play,
-  Radio,
   Save,
   SlidersHorizontal,
   Square,
@@ -58,10 +57,8 @@ type PadHighlight = {
 
 const VIEW_ITEMS: { id: ViewId; label: string; icon: typeof Music }[] = [
   { id: 'studio', label: 'Studio', icon: Music },
-  { id: 'chordPads', label: 'Chord Pads', icon: Music },
   { id: 'chords', label: 'Chords', icon: SlidersHorizontal },
   { id: 'levels', label: '16 Levels', icon: Square },
-  { id: 'groove', label: 'Groove', icon: Play },
   { id: 'library', label: 'Library', icon: Library },
 ]
 
@@ -395,9 +392,6 @@ function App() {
             </button>
             <button type="button" className="icon-button" onClick={() => auditionShape(selectedShape, 34)} title="Strum chord">
               <Volume2 size={20} />
-            </button>
-            <button type="button" className="icon-button accent" onClick={playPattern} title="Play groove">
-              <Radio size={20} />
             </button>
           </div>
         )}
@@ -1272,7 +1266,7 @@ function ChordsView({
         <div className="pad-actions">
           <button type="button" className="secondary-action" onClick={onAnimate} disabled={playablePads.length === 0}>
             <Music size={18} />
-            <span>Flash chord pads</span>
+            <span>Flash pads</span>
           </button>
           <button type="button" className="primary-action" onClick={() => onAddChord(chordRoot, chordQuality)} disabled={playablePads.length === 0}>
             <Music size={18} />
@@ -1301,7 +1295,7 @@ function ChordsView({
           </div>
           {missingEssentials.length > 0 && (
             <div className="result-box warning-box">
-              <strong>Missing:</strong> {missingEssentials.map((tone) => `${tone.noteName} ${intervalRoleLabel(tone.interval)}`).join(', ')}. Try another original pad on the Chord Pads page.
+              <strong>Missing:</strong> {missingEssentials.map((tone) => `${tone.noteName} ${intervalRoleLabel(tone.interval)}`).join(', ')}. Try another original pad above or check the 16 Levels page.
             </div>
           )}
         </div>

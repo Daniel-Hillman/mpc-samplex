@@ -8,6 +8,8 @@ describe('MPC Studio shell', () => {
 
     expect(screen.getByRole('heading', { name: 'MPC Studio' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /16 Levels/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Audition shape/i })).toBeInTheDocument()
     expect(screen.getByText(/Scale notes \(7\):/i)).toBeInTheDocument()
     expect(screen.getByText(/Visible notes \(7\/7\):/i)).toBeInTheDocument()
@@ -31,15 +33,5 @@ describe('MPC Studio shell', () => {
     expect(screen.getByRole('button', { name: 'Up' })).toBeDisabled()
     expect(screen.getAllByText(/P4 \+ P6/).length).toBeGreaterThan(1)
     expect(screen.queryByLabelText('Transport')).not.toBeInTheDocument()
-  })
-
-  it('shows a dedicated chord pads builder with a playable recipe', () => {
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Chord Pads' }))
-
-    expect(screen.getByText('Chord pad builder')).toBeInTheDocument()
-    expect(screen.getByText(/Press these pads/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Hear chord/i })).toBeInTheDocument()
   })
 })
