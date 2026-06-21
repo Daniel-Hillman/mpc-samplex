@@ -188,6 +188,7 @@ export interface ProgressionPlaybookStep {
 
 export type InstrumentPreset = 'warmKeys' | 'lushPad' | 'dustyEp' | 'softPluck' | 'deepBass' | 'cleanSine'
 export type AudioFeel = 'tight' | 'natural' | 'loose'
+export type SurfaceMode = 'pads' | 'keys'
 
 export interface StudioProject {
   schemaVersion: 1
@@ -210,5 +211,6 @@ export interface AppSettings {
   audioFeel: AudioFeel
   keyRoot: string
   scaleType: ScaleType
+  surfaceMode: SurfaceMode
   updatedAt: string
 }

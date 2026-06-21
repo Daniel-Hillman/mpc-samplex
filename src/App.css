@@ -63,6 +63,7 @@
 
 .transport-strip,
 .topbar-actions,
+.surface-switch,
 .view-tabs,
 .toggle-stack,
 .template-stack,
@@ -74,6 +75,7 @@
 }
 
 .icon-button,
+.surface-switch button,
 .master-key-button,
 .tab-button,
 .toggle,
@@ -89,6 +91,7 @@
 .template-button,
 .step,
 .mpc-pad,
+.keyboard-key,
 .segmented button {
   border: 1px solid var(--line);
   color: var(--text);
@@ -104,6 +107,7 @@
 }
 
 .icon-button:hover,
+.surface-switch button:hover,
 .master-key-button:hover,
 .tab-button:hover,
 .toggle:hover,
@@ -119,11 +123,13 @@
 .template-button:hover,
 .step:hover,
 .mpc-pad:hover,
+.keyboard-key:hover,
 .segmented button:hover {
   border-color: var(--line-strong);
 }
 
 .icon-button:focus-visible,
+.surface-switch button:focus-visible,
 .master-key-button:focus-visible,
 .tab-button:focus-visible,
 .toggle:focus-visible,
@@ -139,6 +145,7 @@
 .template-button:focus-visible,
 .step:focus-visible,
 .mpc-pad:focus-visible,
+.keyboard-key:focus-visible,
 .segmented button:focus-visible,
 input:focus-visible,
 select:focus-visible {
@@ -162,6 +169,34 @@ select:focus-visible {
 
 .topbar-actions {
   margin-left: auto;
+}
+
+.surface-switch {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.2rem;
+  background: #e8dece;
+}
+
+.surface-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.35rem;
+  border-color: transparent;
+  border-radius: 3px;
+  padding: 0 0.65rem;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.surface-switch button.active {
+  color: var(--paper);
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 .master-key-wrap {
@@ -581,6 +616,7 @@ main {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: clamp(0.6rem, 1.6vw, 0.9rem);
+  animation: surface-slide-in 180ms ease both;
 }
 
 .mpc-pad {
@@ -685,6 +721,175 @@ main {
   position: absolute;
   left: 0.55rem;
   top: 0.45rem;
+}
+
+.keyboard-surface {
+  display: grid;
+  gap: 0.65rem;
+  animation: surface-slide-in 180ms ease both;
+}
+
+.keyboard-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scrollbar-width: thin;
+}
+
+.keyboard-frame {
+  display: grid;
+  grid-template-columns: repeat(var(--key-count), minmax(2.2rem, 1fr));
+  align-items: end;
+  min-width: max(100%, calc(var(--key-count) * 2.35rem));
+  height: clamp(12rem, 23vw, 16rem);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 0.55rem;
+  background: #2d2a24;
+  box-shadow: inset 0 -0.45rem 0 rgba(0, 0, 0, 0.22);
+}
+
+.keyboard-key {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  align-items: end;
+  justify-items: center;
+  min-width: 0;
+  height: 100%;
+  border-width: 2px;
+  border-radius: 0 0 5px 5px;
+  padding: 0.42rem 0.2rem;
+  box-shadow: inset 0 -0.3rem 0 rgba(0, 0, 0, 0.14);
+}
+
+.keyboard-key.white {
+  color: #2b251d;
+  border-color: #907c62;
+  background: #f4ecdf;
+}
+
+.keyboard-key.black {
+  z-index: 2;
+  align-self: start;
+  width: calc(100% + 0.25rem);
+  height: 62%;
+  justify-self: center;
+  color: #f4efe5;
+  border-color: #18140f;
+  background: #1f1b16;
+}
+
+.keyboard-key.out-window {
+  cursor: not-allowed;
+  opacity: 0.36;
+  filter: grayscale(0.45);
+}
+
+.keyboard-key.safe {
+  color: #f4efe5;
+  border-color: #1f5952;
+  background: var(--mint);
+}
+
+.keyboard-key.root {
+  color: #1f170f;
+  border-color: #70410f;
+  background: var(--gold);
+}
+
+.keyboard-key.chord,
+.keyboard-key.melody-strong {
+  color: #f4efe5;
+  border-color: #82352d;
+  background: var(--rose);
+}
+
+.keyboard-key.chord.root,
+.keyboard-key.melody-home {
+  color: #1f170f;
+  border-color: #70410f;
+  background: var(--gold);
+}
+
+.keyboard-key.melody-safe {
+  color: #f4efe5;
+  border-color: #1f5952;
+  background: var(--mint);
+}
+
+.keyboard-key.melody-passing {
+  color: #2b251d;
+  border-color: var(--line-strong);
+  background: #f4ecdf;
+}
+
+.keyboard-key.melody-tension {
+  color: #f4efe5;
+  border-color: #2b251d;
+  background: #2d2a24;
+}
+
+.keyboard-key.original {
+  outline: 2px dashed var(--ink);
+  outline-offset: -0.42rem;
+}
+
+.keyboard-key.pulse {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 -0.35rem 0 rgba(0, 0, 0, 0.18),
+    0 0 0 3px rgba(33, 27, 21, 0.16);
+}
+
+.keyboard-key span,
+.keyboard-key small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  opacity: 0.72;
+}
+
+.keyboard-key strong {
+  align-self: center;
+  font-family: var(--serif);
+  font-size: clamp(0.98rem, 1.8vw, 1.45rem);
+}
+
+.keyboard-caption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.keyboard-caption span {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0.35rem 0.55rem;
+  color: var(--muted);
+  background: #f4ecdf;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@keyframes surface-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad-grid,
+  .keyboard-surface {
+    animation: none;
+  }
 }
 
 .control-panel {
@@ -1607,9 +1812,19 @@ button.mini-pad.active {
   }
 
   .topbar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
     order: 3;
     width: 100%;
     margin-left: 0;
+  }
+
+  .surface-switch {
+    width: 100%;
+  }
+
+  .surface-switch button {
+    flex: 1 1 0;
   }
 
   .master-key-wrap,

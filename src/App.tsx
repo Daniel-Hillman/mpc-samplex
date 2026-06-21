@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Info,
   Music,
+  Piano,
   Play,
   SlidersHorizontal,
   Square,
@@ -57,6 +58,7 @@ import type {
   Pattern,
   ProgressionPlaybookStep,
   StudioProject,
+  SurfaceMode,
 } from './types'
 
 type ViewId = 'studio' | 'chordPads' | 'chords' | 'melodies' | 'levels' | 'groove'
@@ -93,6 +95,7 @@ const AUDIO_FEELS: { value: AudioFeel; label: string }[] = [
 ]
 
 const MPC_PAD_LAYOUT = [13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4] as PadNumber[]
+const BLACK_KEY_PITCH_CLASSES = new Set([1, 3, 6, 8, 10])
 
 const GROOVE_LANES = [
   { id: 'kick', label: 'Kick', midiNote: 36 },
@@ -125,6 +128,7 @@ function App() {
   const [instrumentPreset, setInstrumentPreset] = useState<InstrumentPreset>('warmKeys')
   const [audioFeel, setAudioFeel] = useState<AudioFeel>('natural')
   const [masterKeyOpen, setMasterKeyOpen] = useState(false)
+  const [surfaceMode, setSurfaceMode] = useState<SurfaceMode>('pads')
   const audioRef = useRef<StudioAudio | null>(null)
   const storageLoadedRef = useRef(false)
 
@@ -234,6 +238,9 @@ function App() {
             if (isScaleType(storedSettings.scaleType)) {
               setScaleType(storedSettings.scaleType)
             }
+            if (isSurfaceMode(storedSettings.surfaceMode)) {
+              setSurfaceMode(storedSettings.surfaceMode)
+            }
           }
           storageLoadedRef.current = true
         })
@@ -283,6 +290,7 @@ function App() {
               audioFeel,
               keyRoot,
               scaleType,
+              surfaceMode,
               updatedAt: new Date().toISOString(),
             }),
           ]),
@@ -293,7 +301,7 @@ function App() {
     }, 450)
 
     return () => window.clearTimeout(saveTimer)
-  }, [audioFeel, instrumentPreset, keyRoot, originalPad, previewEnabled, project, sampleRootMidi, scaleType])
+  }, [audioFeel, instrumentPreset, keyRoot, originalPad, previewEnabled, project, sampleRootMidi, scaleType, surfaceMode])
 
   async function ensureAudio() {
     if (!audioRef.current) {
@@ -455,6 +463,7 @@ function App() {
           </div>
         </div>
         <div className="topbar-actions">
+          <SurfaceModeSwitch value={surfaceMode} onChange={setSurfaceMode} />
           <div className="master-key-wrap">
             <button
               type="button"
@@ -539,6 +548,7 @@ function App() {
             pitchWindow={pitchWindow}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
+            surfaceMode={surfaceMode}
             keyRoot={keyRoot}
             chordRoot={chordRoot}
             chordQuality={chordQuality}
@@ -579,6 +589,7 @@ function App() {
             scaleType={scaleType}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
+            surfaceMode={surfaceMode}
             diatonicChords={diatonicChords}
             selectedShape={selectedShape}
             progressionShapes={progressionShapes}
@@ -607,6 +618,7 @@ function App() {
             scaleType={scaleType}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
+            surfaceMode={surfaceMode}
             selectedShape={selectedShape}
             pitchWindow={pitchWindow}
             melodyPads={melodyPads}
@@ -627,6 +639,7 @@ function App() {
             scaleType={scaleType}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
+            surfaceMode={surfaceMode}
             analysis={analysis}
             selectedShape={selectedShape}
             pitchWindow={pitchWindow}
@@ -652,6 +665,7 @@ function App() {
             scaleType={scaleType}
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
+            surfaceMode={surfaceMode}
             selectedShape={selectedShape}
             pitchWindow={pitchWindow}
             scaleNotes={scaleNotes}
@@ -697,6 +711,7 @@ interface StudioViewProps {
   pitchWindow: ReturnType<typeof createPitchWindow>
   sampleRootMidi: number
   originalPad: PadNumber
+  surfaceMode: SurfaceMode
   keyRoot: string
   chordRoot: string
   chordQuality: ChordQualityId
@@ -737,6 +752,7 @@ function StudioView({
   pitchWindow,
   sampleRootMidi,
   originalPad,
+  surfaceMode,
   keyRoot,
   chordRoot,
   chordQuality,
@@ -861,6 +877,7 @@ function StudioView({
           pitchWindow={pitchWindow}
           padHighlights={padHighlights}
           highlightMode={highlightMode}
+          surfaceMode={surfaceMode}
           animatedPads={animatedPads}
           onPlayPad={onPlayPad}
         />
@@ -996,6 +1013,7 @@ interface ChordPadsViewProps {
   scaleType: ScaleType
   sampleRootMidi: number
   originalPad: PadNumber
+  surfaceMode: SurfaceMode
   analysis: ReturnType<typeof analyzeSixteenLevelsChord>
   selectedShape: ChordShape
   pitchWindow: ReturnType<typeof createPitchWindow>
@@ -1018,6 +1036,7 @@ function ChordPadsView({
   scaleType,
   sampleRootMidi,
   originalPad,
+  surfaceMode,
   analysis,
   selectedShape,
   pitchWindow,
@@ -1103,6 +1122,7 @@ function ChordPadsView({
           pitchWindow={pitchWindow}
           padHighlights={chordShapeHighlights}
           highlightMode="chord"
+          surfaceMode={surfaceMode}
           animatedPads={animatedPads}
           onPlayPad={onPlayPad}
         />
@@ -1192,6 +1212,7 @@ interface ChordsViewProps {
   scaleType: ScaleType
   sampleRootMidi: number
   originalPad: PadNumber
+  surfaceMode: SurfaceMode
   diatonicChords: { id: string; root: string; quality: ChordQualityId; durationTicks: number }[]
   selectedShape: ChordShape
   progressionShapes: { step: ChordStep; shape: ChordShape }[]
@@ -1220,6 +1241,7 @@ function ChordsView({
   scaleType,
   sampleRootMidi,
   originalPad,
+  surfaceMode,
   diatonicChords,
   selectedShape,
   progressionShapes,
@@ -1405,6 +1427,7 @@ function ChordsView({
           pitchWindow={pitchWindow}
           padHighlights={chordShapeHighlights}
           highlightMode="chord"
+          surfaceMode={surfaceMode}
           animatedPads={animatedPads}
           onPlayPad={onPlayPad}
         />
@@ -1646,6 +1669,7 @@ interface MelodiesViewProps {
   scaleType: ScaleType
   sampleRootMidi: number
   originalPad: PadNumber
+  surfaceMode: SurfaceMode
   selectedShape: ChordShape
   pitchWindow: ReturnType<typeof createPitchWindow>
   melodyPads: MelodyPad[]
@@ -1662,6 +1686,7 @@ function MelodiesView({
   scaleType,
   sampleRootMidi,
   originalPad,
+  surfaceMode,
   selectedShape,
   pitchWindow,
   melodyPads,
@@ -1732,6 +1757,7 @@ function MelodiesView({
           pitchWindow={pitchWindow}
           padHighlights={melodyHighlights}
           highlightMode="all"
+          surfaceMode={surfaceMode}
           animatedPads={animatedPads}
           onPlayPad={onPlayPad}
         />
@@ -1795,6 +1821,7 @@ interface LevelsViewProps {
   scaleType: ScaleType
   sampleRootMidi: number
   originalPad: PadNumber
+  surfaceMode: SurfaceMode
   selectedShape: ChordShape
   pitchWindow: ReturnType<typeof createPitchWindow>
   scaleNotes: string[]
@@ -1817,6 +1844,7 @@ function LevelsView({
   scaleType,
   sampleRootMidi,
   originalPad,
+  surfaceMode,
   selectedShape,
   pitchWindow,
   scaleNotes,
@@ -1889,6 +1917,7 @@ function LevelsView({
           pitchWindow={pitchWindow}
           padHighlights={padHighlights}
           highlightMode="scale"
+          surfaceMode={surfaceMode}
           onPlayPad={onPlayPad}
         />
         <div className="legend helper-legend">
@@ -2095,17 +2124,43 @@ function isScaleType(value: unknown): value is ScaleType {
   return typeof value === 'string' && SCALE_DEFINITIONS.some((scale) => scale.id === value)
 }
 
+function isSurfaceMode(value: unknown): value is SurfaceMode {
+  return value === 'pads' || value === 'keys'
+}
+
 interface PadGridProps {
   selectedShape: ChordShape
   pitchWindow: ReturnType<typeof createPitchWindow>
   padHighlights?: Record<PadNumber, PadHighlight>
   highlightMode?: 'scale' | 'chord' | 'all'
+  surfaceMode?: SurfaceMode
   animatedPads?: PadNumber[]
   onPlayPad: (pad: PadNumber) => void
 }
 
-function PadGrid({ selectedShape, pitchWindow, padHighlights, highlightMode = 'chord', animatedPads = [], onPlayPad }: PadGridProps) {
+function PadGrid({
+  selectedShape,
+  pitchWindow,
+  padHighlights,
+  highlightMode = 'chord',
+  surfaceMode = 'pads',
+  animatedPads = [],
+  onPlayPad,
+}: PadGridProps) {
   const activePads = new Map(selectedShape.pads.map((pad) => [pad.pad, pad]))
+
+  if (surfaceMode === 'keys') {
+    return (
+      <KeyboardSurface
+        activePads={activePads}
+        pitchWindow={pitchWindow}
+        padHighlights={padHighlights}
+        highlightMode={highlightMode}
+        animatedPads={animatedPads}
+        onPlayPad={onPlayPad}
+      />
+    )
+  }
 
   return (
     <div className="pad-grid">
@@ -2147,6 +2202,95 @@ function PadGrid({ selectedShape, pitchWindow, padHighlights, highlightMode = 'c
   )
 }
 
+function KeyboardSurface({
+  activePads,
+  pitchWindow,
+  padHighlights,
+  highlightMode,
+  animatedPads,
+  onPlayPad,
+}: {
+  activePads: Map<PadNumber, ChordShape['pads'][number]>
+  pitchWindow: ReturnType<typeof createPitchWindow>
+  padHighlights?: Record<PadNumber, PadHighlight>
+  highlightMode: 'scale' | 'chord' | 'all'
+  animatedPads: PadNumber[]
+  onPlayPad: (pad: PadNumber) => void
+}) {
+  const keys = buildKeyboardRange(pitchWindow)
+  const shouldShowScale = highlightMode === 'scale' || highlightMode === 'all'
+  const shouldShowChord = highlightMode === 'chord' || highlightMode === 'all'
+
+  return (
+    <div className="keyboard-surface" aria-label="Keyboard view">
+      <div className="keyboard-scroll">
+        <div className="keyboard-frame" style={{ '--key-count': keys.length } as CSSProperties}>
+          {keys.map((midi) => {
+            const pad = midiToPadNumber(midi, pitchWindow)
+            const active = pad ? activePads.get(pad) : undefined
+            const highlight = pad ? padHighlights?.[pad] : undefined
+            const isBlackKey = BLACK_KEY_PITCH_CLASSES.has(positiveInterval(midi))
+            const roleLabel = highlight?.chordRole && (shouldShowChord || highlight?.melodyRole) ? highlight.chordRole : undefined
+            const classes = [
+              'keyboard-key',
+              isBlackKey ? 'black' : 'white',
+              pad ? 'in-window' : 'out-window',
+              active && !padHighlights ? 'active' : '',
+              active && !padHighlights ? `interval-${active.interval}` : '',
+              highlight?.isOriginal ? 'original' : '',
+              shouldShowScale && highlight?.isSafe ? 'safe' : '',
+              highlight?.isRoot ? 'root' : '',
+              shouldShowChord && highlight?.isChord ? 'chord' : '',
+              highlight?.melodyRole ? `melody-${highlight.melodyRole}` : '',
+              pad && animatedPads.includes(pad) ? 'pulse' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+
+            return (
+              <button
+                type="button"
+                className={classes}
+                key={midi}
+                disabled={!pad}
+                onClick={() => {
+                  if (pad) {
+                    onPlayPad(pad)
+                  }
+                }}
+                aria-label={`${midiToNoteWithOctave(midi)}${pad ? ` Pad ${pad}` : ' outside 16 Levels window'}`}
+              >
+                <span>{midiToNoteWithOctave(midi)}</span>
+                <strong>{midiToNoteName(midi)}</strong>
+                <small>{roleLabel ?? (pad ? `P${pad}` : 'out')}</small>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="keyboard-caption">
+        <span>{midiToNoteWithOctave(pitchWindow.minMidi)}-{midiToNoteWithOctave(pitchWindow.maxMidi)} is the active 16 Levels window</span>
+        <span>Keys outside the window are visible for context only</span>
+      </div>
+    </div>
+  )
+}
+
+function buildKeyboardRange(pitchWindow: ReturnType<typeof createPitchWindow>): number[] {
+  const firstMidi = pitchWindow.minMidi
+  let lastMidi = pitchWindow.maxMidi
+  if (lastMidi - firstMidi < 24) {
+    lastMidi = firstMidi + 24
+  }
+
+  return Array.from({ length: lastMidi - firstMidi + 1 }, (_, index) => firstMidi + index)
+}
+
+function midiToPadNumber(midi: number, pitchWindow: ReturnType<typeof createPitchWindow>): PadNumber | null {
+  const pad = midi - pitchWindow.sampleRootMidi + pitchWindow.originalPitchPad
+  return PAD_NUMBERS.includes(pad as PadNumber) ? (pad as PadNumber) : null
+}
+
 function PanelHeader({ kicker, title, value }: { kicker: string; title: string; value: string }) {
   return (
     <div className="panel-header">
@@ -2166,6 +2310,21 @@ function Guide({ title, children }: { title: string; children: ReactNode }) {
       </summary>
       <div>{children}</div>
     </details>
+  )
+}
+
+function SurfaceModeSwitch({ value, onChange }: { value: SurfaceMode; onChange: (mode: SurfaceMode) => void }) {
+  return (
+    <div className="surface-switch" role="group" aria-label="Theory surface">
+      <button type="button" className={value === 'pads' ? 'active' : ''} aria-pressed={value === 'pads'} onClick={() => onChange('pads')}>
+        <Square size={16} />
+        <span>Pads</span>
+      </button>
+      <button type="button" className={value === 'keys' ? 'active' : ''} aria-pressed={value === 'keys'} onClick={() => onChange('keys')}>
+        <Piano size={16} />
+        <span>Keys</span>
+      </button>
+    </div>
   )
 }
 

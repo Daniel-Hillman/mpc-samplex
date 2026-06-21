@@ -48,6 +48,24 @@ describe('MPC Samplex shell', () => {
     expect(screen.queryByRole('combobox', { name: 'Track key' })).not.toBeInTheDocument()
   })
 
+  it('switches from MPC pads to keyboard view across pages', () => {
+    const { container } = render(<App />)
+
+    expect(screen.getByRole('group', { name: 'Theory surface' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keys' }))
+
+    expect(container.querySelector('.keyboard-surface')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /C3 Pad 4/i })).toBeInTheDocument()
+    expect(screen.getByText(/active 16 Levels window/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Chords' }))
+
+    expect(container.querySelector('.keyboard-surface')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pads' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Keys' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('shows simple in-key chords and pad recipes on the chord page', () => {
     render(<App />)
 

@@ -35,15 +35,17 @@ export async function ensureDefaultRecords() {
       audioFeel: 'natural',
       keyRoot: 'C',
       scaleType: 'minor',
+      surfaceMode: 'pads',
       updatedAt: new Date().toISOString(),
     })
-  } else if (!settings.instrumentPreset || !settings.audioFeel || !settings.keyRoot || !settings.scaleType) {
+  } else if (!settings.instrumentPreset || !settings.audioFeel || !settings.keyRoot || !settings.scaleType || !settings.surfaceMode) {
     await db.settings.put({
       ...settings,
       instrumentPreset: settings.instrumentPreset ?? 'warmKeys',
       audioFeel: settings.audioFeel ?? 'natural',
       keyRoot: settings.keyRoot ?? 'C',
       scaleType: settings.scaleType ?? 'minor',
+      surfaceMode: settings.surfaceMode ?? 'pads',
       updatedAt: new Date().toISOString(),
     })
   }
