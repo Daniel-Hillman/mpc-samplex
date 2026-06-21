@@ -11,6 +11,7 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByRole('button', { name: 'Melodies' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Audition shape/i })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Sound' })).toHaveValue('warmKeys')
     expect(screen.getByRole('button', { name: 'Natural' })).toBeInTheDocument()

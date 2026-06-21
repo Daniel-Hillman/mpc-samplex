@@ -190,7 +190,6 @@ main {
 .melody-layout,
 .levels-layout,
 .groove-layout,
-.library-layout,
 .split-layout {
   display: grid;
   gap: 1rem;
@@ -331,7 +330,6 @@ main {
   grid-column: 1 / -1;
 }
 
-.library-layout,
 .split-layout {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1218,7 +1216,6 @@ button.mini-pad.active {
   .melody-layout,
   .levels-layout,
   .groove-layout,
-  .library-layout,
   .split-layout {
     grid-template-columns: 1fr 1fr;
   }
@@ -1266,7 +1263,6 @@ button.mini-pad.active {
   .chord-pad-layout,
   .levels-layout,
   .groove-layout,
-  .library-layout,
   .split-layout {
     grid-template-columns: 1fr;
   }

@@ -52,29 +52,3 @@ export async function saveProject(project: StudioProject) {
 export async function saveSettings(settings: AppSettings) {
   await db.settings.put({ ...settings, updatedAt: new Date().toISOString() })
 }
-
-export async function exportProjectsJson(): Promise<string> {
-  await ensureDefaultRecords()
-  const [projects, padMaps, settings] = await Promise.all([db.projects.toArray(), db.padMaps.toArray(), db.settings.toArray()])
-  return JSON.stringify({ schemaVersion: 1, projects, padMaps, settings }, null, 2)
-}
-
-export async function importProjectsJson(json: string) {
-  const payload = JSON.parse(json) as {
-    projects?: StudioProject[]
-    padMaps?: PadMap[]
-    settings?: AppSettings[]
-  }
-
-  await db.transaction('rw', db.projects, db.padMaps, db.settings, async () => {
-    if (Array.isArray(payload.projects)) {
-      await db.projects.bulkPut(payload.projects)
-    }
-    if (Array.isArray(payload.padMaps)) {
-      await db.padMaps.bulkPut(payload.padMaps)
-    }
-    if (Array.isArray(payload.settings)) {
-      await db.settings.bulkPut(payload.settings)
-    }
-  })
-}

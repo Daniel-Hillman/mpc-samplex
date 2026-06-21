@@ -2,15 +2,11 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import {
   AlertCircle,
   CheckCircle2,
-  Download,
   Info,
-  Library,
   Music,
   Play,
-  Save,
   SlidersHorizontal,
   Square,
-  Upload,
   Volume2,
 } from 'lucide-react'
 import './App.css'
@@ -63,7 +59,7 @@ import type {
   StudioProject,
 } from './types'
 
-type ViewId = 'studio' | 'chordPads' | 'chords' | 'melodies' | 'levels' | 'groove' | 'library'
+type ViewId = 'studio' | 'chordPads' | 'chords' | 'melodies' | 'levels' | 'groove'
 type ChordPaletteMode = 'triads' | 'sevenths' | 'colors'
 type PadHighlight = {
   isSafe: boolean
@@ -79,7 +75,6 @@ const VIEW_ITEMS: { id: ViewId; label: string; icon: typeof Music }[] = [
   { id: 'chords', label: 'Chords', icon: SlidersHorizontal },
   { id: 'melodies', label: 'Melodies', icon: Music },
   { id: 'levels', label: '16 Levels', icon: Square },
-  { id: 'library', label: 'Library', icon: Library },
 ]
 
 const AUDIO_PRESETS: { value: InstrumentPreset; label: string }[] = [
@@ -127,8 +122,8 @@ function App() {
   const [audioReady, setAudioReady] = useState(false)
   const [instrumentPreset, setInstrumentPreset] = useState<InstrumentPreset>('warmKeys')
   const [audioFeel, setAudioFeel] = useState<AudioFeel>('natural')
-  const [savedMessage, setSavedMessage] = useState('Local project ready')
   const audioRef = useRef<StudioAudio | null>(null)
+  const storageLoadedRef = useRef(false)
 
   const pattern = project.patterns[0]
   const progression = project.progressions[0]
@@ -231,8 +226,11 @@ function App() {
             setInstrumentPreset(storedSettings.instrumentPreset ?? 'warmKeys')
             setAudioFeel(storedSettings.audioFeel ?? 'natural')
           }
+          storageLoadedRef.current = true
         })
-        .catch(() => setSavedMessage('Storage is unavailable in this browser'))
+        .catch(() => {
+          storageLoadedRef.current = false
+        })
     }, 0)
 
     const audioWarmTimer = window.setTimeout(() => {
@@ -251,6 +249,40 @@ function App() {
     audioRef.current?.setInstrumentPreset(instrumentPreset)
     audioRef.current?.setAudioFeel(audioFeel)
   }, [audioFeel, instrumentPreset])
+
+  useEffect(() => {
+    if (!storageLoadedRef.current) {
+      return
+    }
+
+    const saveTimer = window.setTimeout(() => {
+      const nextProject = {
+        ...project,
+        sixteenLevelsSetups: [{ sampleRootMidi, originalPitchPad: originalPad, targetKey: `${keyRoot} ${scaleType}` }],
+        updatedAt: new Date().toISOString(),
+      }
+
+      void import('./lib/storage')
+        .then(({ saveProject, saveSettings }) =>
+          Promise.all([
+            saveProject(nextProject),
+            saveSettings({
+              id: 'settings',
+              previewEnabled,
+              lastPadMapId: nextProject.padMapId,
+              instrumentPreset,
+              audioFeel,
+              updatedAt: new Date().toISOString(),
+            }),
+          ]),
+        )
+        .catch(() => {
+          storageLoadedRef.current = false
+        })
+    }, 450)
+
+    return () => window.clearTimeout(saveTimer)
+  }, [audioFeel, instrumentPreset, keyRoot, originalPad, previewEnabled, project, sampleRootMidi, scaleType])
 
   async function ensureAudio() {
     if (!audioRef.current) {
@@ -399,63 +431,6 @@ function App() {
         updatedAt: new Date().toISOString(),
       }
     })
-  }
-
-  async function saveLocalProject() {
-    const { saveProject, saveSettings } = await import('./lib/storage')
-    const nextProject = {
-      ...project,
-      tempo: project.tempo,
-      swing: project.swing,
-      sixteenLevelsSetups: [{ sampleRootMidi, originalPitchPad: originalPad, targetKey: `${keyRoot} ${scaleType}` }],
-      updatedAt: new Date().toISOString(),
-    }
-    await Promise.all([
-      saveProject(nextProject),
-      saveSettings({
-        id: 'settings',
-        previewEnabled,
-        lastPadMapId: nextProject.padMapId,
-        instrumentPreset,
-        audioFeel,
-        updatedAt: new Date().toISOString(),
-      }),
-    ])
-    setProject(nextProject)
-    setSavedMessage('Saved locally')
-  }
-
-  async function exportLibrary() {
-    const { exportProjectsJson } = await import('./lib/storage')
-    const json = await exportProjectsJson()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = 'mpc-samplex-library.json'
-    anchor.click()
-    URL.revokeObjectURL(url)
-    setSavedMessage('Library exported')
-  }
-
-  async function importLibrary(file: File | undefined) {
-    if (!file) {
-      return
-    }
-
-    const { db, importProjectsJson } = await import('./lib/storage')
-    await importProjectsJson(await file.text())
-    const restored = await db.projects.get('local-main')
-    if (restored) {
-      setProject(restored)
-    }
-    const restoredSettings = await db.settings.get('settings')
-    if (restoredSettings) {
-      setPreviewEnabled(restoredSettings.previewEnabled)
-      setInstrumentPreset(restoredSettings.instrumentPreset ?? 'warmKeys')
-      setAudioFeel(restoredSettings.audioFeel ?? 'natural')
-    }
-    setSavedMessage('Library imported')
   }
 
   return (
@@ -650,17 +625,6 @@ function App() {
             onGridChange={setGridResolution}
             onPatternChange={updatePattern}
             onPlayPattern={playPattern}
-          />
-        )}
-
-        {activeView === 'library' && (
-          <LibraryView
-            project={project}
-            savedMessage={savedMessage}
-            onProjectNameChange={(name) => setProject((current) => ({ ...current, name }))}
-            onSave={saveLocalProject}
-            onExport={exportLibrary}
-            onImport={importLibrary}
           />
         )}
       </main>
@@ -2091,66 +2055,6 @@ function audioPresetLabel(preset: InstrumentPreset): string {
 
 function audioFeelLabel(feel: AudioFeel): string {
   return AUDIO_FEELS.find((option) => option.value === feel)?.label ?? 'Natural'
-}
-
-interface LibraryViewProps {
-  project: StudioProject
-  savedMessage: string
-  onProjectNameChange: (name: string) => void
-  onSave: () => void
-  onExport: () => void
-  onImport: (file: File | undefined) => void
-}
-
-function LibraryView({ project, savedMessage, onProjectNameChange, onSave, onExport, onImport }: LibraryViewProps) {
-  return (
-    <section className="library-layout">
-      <div className="panel">
-        <PanelHeader kicker="Local" title="Project" value={savedMessage} />
-        <Guide title="Save your work">
-          <p>Save local keeps projects in this browser. Export library makes a JSON backup you can move to another device.</p>
-        </Guide>
-        <ControlRow label="Name">
-          <input value={project.name} onChange={(event) => onProjectNameChange(event.target.value)} />
-        </ControlRow>
-        <StatusStack
-          items={[
-            { label: 'Patterns', value: `${project.patterns.length}` },
-            { label: 'Progressions', value: `${project.progressions.length}` },
-            { label: 'Updated', value: new Date(project.updatedAt).toLocaleString() },
-          ]}
-        />
-        <button type="button" className="primary-action" onClick={onSave}>
-          <Save size={18} />
-          <span>Save local</span>
-        </button>
-      </div>
-
-      <div className="panel">
-        <PanelHeader kicker="Portable" title="Import / export" value="JSON" />
-        <button type="button" className="secondary-action" onClick={onExport}>
-          <Download size={18} />
-          <span>Export library</span>
-        </button>
-        <label className="file-action">
-          <Upload size={18} />
-          <span>Import library</span>
-          <input type="file" accept="application/json" onChange={(event) => onImport(event.target.files?.[0])} />
-        </label>
-      </div>
-
-      <div className="panel">
-        <PanelHeader kicker="Reality check" title="Current scope" value="No export" />
-        <StatusStack
-          items={[
-            { label: 'MPC workflow', value: 'Use pad recipes and repitch notes by hand' },
-            { label: 'Browser role', value: 'Audition chords, scales, grooves, and one-shot pitches' },
-            { label: 'Future transfer', value: 'Parked until the core helper feels excellent' },
-          ]}
-        />
-      </div>
-    </section>
-  )
 }
 
 interface PadGridProps {
