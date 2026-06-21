@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
@@ -9,6 +9,7 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByRole('heading', { name: 'MPC Samplex' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '16 Levels / Scales' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Melodies' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Master key C Minor/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Library' })).not.toBeInTheDocument()
@@ -21,6 +22,28 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByRole('button', { name: 'Natural' })).toBeInTheDocument()
     expect(screen.getByText('Play this now')).toBeInTheDocument()
     expect(screen.getByText(/Safe pads:/i)).toBeInTheDocument()
+  })
+
+  it('uses one master key across the pages', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Master key C Minor/i }))
+    const masterKeyPanel = screen.getByRole('dialog', { name: 'Master key' })
+
+    fireEvent.change(within(masterKeyPanel).getByRole('combobox', { name: 'Song key' }), {
+      target: { value: 'A' },
+    })
+    fireEvent.change(within(masterKeyPanel).getByRole('combobox', { name: 'Scale' }), {
+      target: { value: 'major' },
+    })
+
+    expect(screen.getByRole('button', { name: /Master key A Major/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Master key A Major/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Chords' }))
+
+    expect(screen.getAllByText('A Major').length).toBeGreaterThan(1)
+    expect(screen.queryByRole('combobox', { name: 'Track key' })).not.toBeInTheDocument()
   })
 
   it('shows simple in-key chords and pad recipes on the chord page', () => {

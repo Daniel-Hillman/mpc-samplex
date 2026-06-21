@@ -1,3 +1,5 @@
+import type { ScaleType } from './lib/music'
+
 export type Bank = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H'
 
 export type PadNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16
@@ -206,5 +208,7 @@ export interface AppSettings {
   lastPadMapId: string
   instrumentPreset: InstrumentPreset
   audioFeel: AudioFeel
+  keyRoot: string
+  scaleType: ScaleType
   updatedAt: string
 }

@@ -122,6 +122,7 @@ function App() {
   const [audioReady, setAudioReady] = useState(false)
   const [instrumentPreset, setInstrumentPreset] = useState<InstrumentPreset>('warmKeys')
   const [audioFeel, setAudioFeel] = useState<AudioFeel>('natural')
+  const [masterKeyOpen, setMasterKeyOpen] = useState(false)
   const audioRef = useRef<StudioAudio | null>(null)
   const storageLoadedRef = useRef(false)
 
@@ -225,6 +226,12 @@ function App() {
             setPreviewEnabled(storedSettings.previewEnabled)
             setInstrumentPreset(storedSettings.instrumentPreset ?? 'warmKeys')
             setAudioFeel(storedSettings.audioFeel ?? 'natural')
+            if (isRootNote(storedSettings.keyRoot)) {
+              setTrackKey(storedSettings.keyRoot)
+            }
+            if (isScaleType(storedSettings.scaleType)) {
+              setScaleType(storedSettings.scaleType)
+            }
           }
           storageLoadedRef.current = true
         })
@@ -272,6 +279,8 @@ function App() {
               lastPadMapId: nextProject.padMapId,
               instrumentPreset,
               audioFeel,
+              keyRoot,
+              scaleType,
               updatedAt: new Date().toISOString(),
             }),
           ]),
@@ -443,6 +452,51 @@ function App() {
             <p>{describeChord(chordRoot, chordQuality)} over {midiToNoteWithOctave(sampleRootMidi)} - {project.tempo} BPM</p>
           </div>
         </div>
+        <div className="topbar-actions">
+          <div className="master-key-wrap">
+            <button
+              type="button"
+              className="master-key-button"
+              aria-label={`Master key ${keyRoot} ${scaleDefinition.label}`}
+              aria-expanded={masterKeyOpen}
+              aria-controls="master-key-panel"
+              onClick={() => setMasterKeyOpen((open) => !open)}
+            >
+              <Music size={17} />
+              <span>Master key</span>
+              <strong>{keyRoot} {scaleDefinition.label}</strong>
+            </button>
+            {masterKeyOpen && (
+              <div id="master-key-panel" className="master-key-popover" role="dialog" aria-label="Master key">
+                <div className="master-key-popover-head">
+                  <span>Song key for the whole app</span>
+                  <b>{keyRoot} {scaleDefinition.label}</b>
+                </div>
+                <div className="helper-mini-row master-key-fields">
+                  <ControlRow label="Song key">
+                    <select value={keyRoot} onChange={(event) => setTrackKey(event.target.value)}>
+                      {ROOT_NOTES.map((note) => (
+                        <option key={note} value={note}>
+                          {note}
+                        </option>
+                      ))}
+                    </select>
+                  </ControlRow>
+                  <ControlRow label="Scale">
+                    <select value={scaleType} onChange={(event) => setScaleType(event.target.value as ScaleType)}>
+                      {SCALE_DEFINITIONS.map((scale) => (
+                        <option key={scale.id} value={scale.id}>
+                          {scale.label}
+                        </option>
+                      ))}
+                    </select>
+                  </ControlRow>
+                </div>
+                <p>Chords, Melodies, 16 Levels and retune targets follow this key.</p>
+              </div>
+            )}
+          </div>
+        </div>
         {activeView !== 'chords' && (
           <div className="transport-strip" aria-label="Transport">
             <button type="button" className="icon-button" onClick={() => auditionShape(selectedShape)} title="Play chord">
@@ -484,7 +538,6 @@ function App() {
             sampleRootMidi={sampleRootMidi}
             originalPad={originalPad}
             keyRoot={keyRoot}
-            scaleType={scaleType}
             chordRoot={chordRoot}
             chordQuality={chordQuality}
             otherSampleNote={otherSampleNote}
@@ -500,8 +553,6 @@ function App() {
             animatedPads={animatedPads}
             onSampleRootChange={setSampleRootMidi}
             onOriginalPadChange={setOriginalPad}
-            onKeyRootChange={setTrackKey}
-            onScaleTypeChange={setScaleType}
             onOtherSampleNoteChange={setOtherSampleNote}
             onTargetNoteChange={setTargetNote}
             onSetTargetToKey={() => setTargetNote(keyRoot)}
@@ -537,8 +588,6 @@ function App() {
             animatedPads={animatedPads}
             onRootChange={setChordRoot}
             onQualityChange={setChordQuality}
-            onKeyRootChange={setKeyRoot}
-            onScaleTypeChange={setScaleType}
             onSampleRootChange={setSampleRootMidi}
             onOriginalPadChange={setOriginalPad}
             onAddChord={addChordToProgression}
@@ -561,8 +610,6 @@ function App() {
             melodyPads={melodyPads}
             melodyHighlights={melodyHighlights}
             animatedPads={animatedPads}
-            onKeyRootChange={setKeyRoot}
-            onScaleTypeChange={setScaleType}
             onSampleRootChange={setSampleRootMidi}
             onOriginalPadChange={setOriginalPad}
             onPlayPad={playSinglePad}
@@ -612,8 +659,6 @@ function App() {
             otherSampleNote={otherSampleNote}
             targetNote={targetNote}
             repitchShift={repitchShift}
-            onKeyRootChange={setKeyRoot}
-            onScaleTypeChange={setScaleType}
             onSampleRootChange={setSampleRootMidi}
             onOriginalPadChange={setOriginalPad}
             onOtherSampleNoteChange={setOtherSampleNote}
@@ -651,7 +696,6 @@ interface StudioViewProps {
   sampleRootMidi: number
   originalPad: PadNumber
   keyRoot: string
-  scaleType: ScaleType
   chordRoot: string
   chordQuality: ChordQualityId
   otherSampleNote: string
@@ -667,8 +711,6 @@ interface StudioViewProps {
   animatedPads: PadNumber[]
   onSampleRootChange: (midi: number) => void
   onOriginalPadChange: (pad: PadNumber) => void
-  onKeyRootChange: (root: string) => void
-  onScaleTypeChange: (scaleType: ScaleType) => void
   onOtherSampleNoteChange: (note: string) => void
   onTargetNoteChange: (note: string) => void
   onSetTargetToKey: () => void
@@ -694,7 +736,6 @@ function StudioView({
   sampleRootMidi,
   originalPad,
   keyRoot,
-  scaleType,
   chordRoot,
   chordQuality,
   otherSampleNote,
@@ -710,8 +751,6 @@ function StudioView({
   animatedPads,
   onSampleRootChange,
   onOriginalPadChange,
-  onKeyRootChange,
-  onScaleTypeChange,
   onOtherSampleNoteChange,
   onTargetNoteChange,
   onSetTargetToKey,
@@ -774,7 +813,12 @@ function StudioView({
       </section>
 
       <aside className="panel home-setup">
-        <PanelHeader kicker="Setup" title="Sample and key" value={`${sampleNote} on Pad ${originalPad}`} />
+        <PanelHeader kicker="Setup" title="Sample and master key" value={`${sampleNote} on Pad ${originalPad}`} />
+        <div className="master-key-readout">
+          <span>Master key</span>
+          <strong>{keyRoot} {scaleDefinitionLabel}</strong>
+          <small>Change it once from the top bar.</small>
+        </div>
         <div className="helper-mini-row">
           <ControlRow label="Sample note">
             <select value={sampleNote} onChange={(event) => onSampleRootChange(noteNameToMidi(event.target.value, 3))}>
@@ -790,26 +834,6 @@ function StudioView({
               {PAD_NUMBERS.map((pad) => (
                 <option key={pad} value={pad}>
                   Pad {pad}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
-        </div>
-        <div className="helper-mini-row">
-          <ControlRow label="Track key">
-            <select value={keyRoot} onChange={(event) => onKeyRootChange(event.target.value)}>
-              {ROOT_NOTES.map((note) => (
-                <option key={note} value={note}>
-                  {note}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
-          <ControlRow label="Scale">
-            <select value={scaleType} onChange={(event) => onScaleTypeChange(event.target.value as ScaleType)}>
-              {SCALE_DEFINITIONS.map((scale) => (
-                <option key={scale.id} value={scale.id}>
-                  {scale.label}
                 </option>
               ))}
             </select>
@@ -1177,8 +1201,6 @@ interface ChordsViewProps {
   animatedPads: PadNumber[]
   onRootChange: (root: string) => void
   onQualityChange: (quality: ChordQualityId) => void
-  onKeyRootChange: (root: string) => void
-  onScaleTypeChange: (scaleType: ScaleType) => void
   onSampleRootChange: (midi: number) => void
   onOriginalPadChange: (pad: PadNumber) => void
   onAddChord: (root: string, quality: ChordQualityId) => void
@@ -1207,8 +1229,6 @@ function ChordsView({
   animatedPads,
   onRootChange,
   onQualityChange,
-  onKeyRootChange,
-  onScaleTypeChange,
   onSampleRootChange,
   onOriginalPadChange,
   onAddChord,
@@ -1255,27 +1275,12 @@ function ChordsView({
       <aside className="panel chord-finder-setup">
         <PanelHeader kicker="1. Setup" title="Scale and sample" value={`${keyRoot} ${scaleLabel}`} />
         <Guide title="Choose the musical map">
-          <p>Set the track key and scale, then tell the app which note your sample plays and which MPC pad holds the original pitch.</p>
+          <p>The master key comes from the top bar. Here you only need the sample note and the MPC pad that holds the original pitch.</p>
         </Guide>
-        <div className="helper-mini-row">
-          <ControlRow label="Track key">
-            <select value={keyRoot} onChange={(event) => onKeyRootChange(event.target.value)}>
-              {ROOT_NOTES.map((note) => (
-                <option key={note} value={note}>
-                  {note}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
-          <ControlRow label="Scale">
-            <select value={scaleType} onChange={(event) => onScaleTypeChange(event.target.value as ScaleType)}>
-              {SCALE_DEFINITIONS.map((scale) => (
-                <option key={scale.id} value={scale.id}>
-                  {scale.label}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
+        <div className="master-key-readout">
+          <span>Master key</span>
+          <strong>{keyRoot} {scaleLabel}</strong>
+          <small>All chord degrees below follow this key.</small>
         </div>
         <div className="helper-mini-row">
           <ControlRow label="Sample note">
@@ -1644,8 +1649,6 @@ interface MelodiesViewProps {
   melodyPads: MelodyPad[]
   melodyHighlights: Record<PadNumber, PadHighlight>
   animatedPads: PadNumber[]
-  onKeyRootChange: (root: string) => void
-  onScaleTypeChange: (scaleType: ScaleType) => void
   onSampleRootChange: (midi: number) => void
   onOriginalPadChange: (pad: PadNumber) => void
   onPlayPad: (pad: PadNumber) => void
@@ -1662,8 +1665,6 @@ function MelodiesView({
   melodyPads,
   melodyHighlights,
   animatedPads,
-  onKeyRootChange,
-  onScaleTypeChange,
   onSampleRootChange,
   onOriginalPadChange,
   onPlayPad,
@@ -1687,25 +1688,10 @@ function MelodiesView({
         <Guide title="Find notes without theory">
           <p>Use home and strong pads for anchors, safe pads for hooks, passing pads for movement, and tension pads only when you want grit.</p>
         </Guide>
-        <div className="helper-mini-row">
-          <ControlRow label="Track key">
-            <select value={keyRoot} onChange={(event) => onKeyRootChange(event.target.value)}>
-              {ROOT_NOTES.map((note) => (
-                <option key={note} value={note}>
-                  {note}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
-          <ControlRow label="Scale">
-            <select value={scaleType} onChange={(event) => onScaleTypeChange(event.target.value as ScaleType)}>
-              {SCALE_DEFINITIONS.map((scale) => (
-                <option key={scale.id} value={scale.id}>
-                  {scale.label}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
+        <div className="master-key-readout">
+          <span>Master key</span>
+          <strong>{keyRoot} {scaleLabel}</strong>
+          <small>Melody roles update everywhere from the top bar.</small>
         </div>
         <div className="helper-mini-row">
           <ControlRow label="Sample note">
@@ -1816,8 +1802,6 @@ interface LevelsViewProps {
   otherSampleNote: string
   targetNote: string
   repitchShift: number
-  onKeyRootChange: (root: string) => void
-  onScaleTypeChange: (scaleType: ScaleType) => void
   onSampleRootChange: (midi: number) => void
   onOriginalPadChange: (pad: PadNumber) => void
   onOtherSampleNoteChange: (note: string) => void
@@ -1840,8 +1824,6 @@ function LevelsView({
   otherSampleNote,
   targetNote,
   repitchShift,
-  onKeyRootChange,
-  onScaleTypeChange,
   onSampleRootChange,
   onOriginalPadChange,
   onOtherSampleNoteChange,
@@ -1862,27 +1844,12 @@ function LevelsView({
       <aside className="panel levels-setup">
         <PanelHeader kicker="16 Levels / Scales" title="Scale setup" value={`${keyRoot} ${scaleLabel}`} />
         <Guide title="Map a scale onto 16 Levels">
-          <p>Choose the track key and scale, then set the sample note and original pad. The grid highlights every pad that lands inside the selected scale.</p>
+          <p>The master key is set once in the top bar. This page maps that scale onto your 16 Levels sample note and original-pitch pad.</p>
         </Guide>
-        <div className="helper-mini-row">
-          <ControlRow label="Track key">
-            <select value={keyRoot} onChange={(event) => onKeyRootChange(event.target.value)}>
-              {ROOT_NOTES.map((note) => (
-                <option key={note} value={note}>
-                  {note}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
-          <ControlRow label="Scale">
-            <select value={scaleType} onChange={(event) => onScaleTypeChange(event.target.value as ScaleType)}>
-              {SCALE_DEFINITIONS.map((scale) => (
-                <option key={scale.id} value={scale.id}>
-                  {scale.label}
-                </option>
-              ))}
-            </select>
-          </ControlRow>
+        <div className="master-key-readout">
+          <span>Master key</span>
+          <strong>{keyRoot} {scaleLabel}</strong>
+          <small>The highlighted pads below come from this key.</small>
         </div>
         <div className="helper-mini-row">
           <ControlRow label="Sample note">
@@ -2116,6 +2083,14 @@ function audioPresetLabel(preset: InstrumentPreset): string {
 
 function audioFeelLabel(feel: AudioFeel): string {
   return AUDIO_FEELS.find((option) => option.value === feel)?.label ?? 'Natural'
+}
+
+function isRootNote(value: unknown): value is string {
+  return typeof value === 'string' && ROOT_NOTES.includes(value)
+}
+
+function isScaleType(value: unknown): value is ScaleType {
+  return typeof value === 'string' && SCALE_DEFINITIONS.some((scale) => scale.id === value)
 }
 
 interface PadGridProps {

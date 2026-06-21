@@ -33,13 +33,17 @@ export async function ensureDefaultRecords() {
       lastPadMapId: 'factory-chromatic',
       instrumentPreset: 'warmKeys',
       audioFeel: 'natural',
+      keyRoot: 'C',
+      scaleType: 'minor',
       updatedAt: new Date().toISOString(),
     })
-  } else if (!settings.instrumentPreset || !settings.audioFeel) {
+  } else if (!settings.instrumentPreset || !settings.audioFeel || !settings.keyRoot || !settings.scaleType) {
     await db.settings.put({
       ...settings,
       instrumentPreset: settings.instrumentPreset ?? 'warmKeys',
       audioFeel: settings.audioFeel ?? 'natural',
+      keyRoot: settings.keyRoot ?? 'C',
+      scaleType: settings.scaleType ?? 'minor',
       updatedAt: new Date().toISOString(),
     })
   }
