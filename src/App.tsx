@@ -871,7 +871,11 @@ function StudioView({
       </aside>
 
       <div className="panel main-surface home-pad-panel">
-        <PanelHeader kicker="16 Levels" title="Pads to try now" value={`${safePads.length} safe`} />
+        <PanelHeader
+          kicker={surfaceMode === 'keys' ? 'Keyboard' : '16 Levels'}
+          title={surfaceMode === 'keys' ? 'Keys to try now' : 'Pads to try now'}
+          value={`${safePads.length} safe`}
+        />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -1116,7 +1120,11 @@ function ChordPadsView({
       </aside>
 
       <div className="panel chord-pad-surface">
-        <PanelHeader kicker="2. Press these pads" title={padRecipe || 'No playable recipe'} value={rankLabel(selectedShape.rank)} />
+        <PanelHeader
+          kicker={surfaceMode === 'keys' ? '2. Press these keys' : '2. Press these pads'}
+          title={surfaceMode === 'keys' ? (padRecipe ? 'Keyboard chord view' : 'No playable recipe') : padRecipe || 'No playable recipe'}
+          value={rankLabel(selectedShape.rank)}
+        />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -1421,7 +1429,11 @@ function ChordsView({
       </div>
 
       <div className="panel chord-finder-pads">
-        <PanelHeader kicker="4. Pads" title={padRecipe || 'No playable recipe'} value={rankLabel(selectedShape.rank)} />
+        <PanelHeader
+          kicker={surfaceMode === 'keys' ? '4. Keys' : '4. Pads'}
+          title={surfaceMode === 'keys' ? (padRecipe ? 'Keyboard chord view' : 'No playable recipe') : padRecipe || 'No playable recipe'}
+          value={rankLabel(selectedShape.rank)}
+        />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -1751,7 +1763,7 @@ function MelodiesView({
       </aside>
 
       <div className="panel melody-pad-panel">
-        <PanelHeader kicker="2. Pads" title="Melody notes" value="roles" />
+        <PanelHeader kicker={surfaceMode === 'keys' ? '2. Keys' : '2. Pads'} title="Melody notes" value="roles" />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -1911,7 +1923,11 @@ function LevelsView({
       </aside>
 
       <div className="panel levels-pad-panel">
-        <PanelHeader kicker="Scale pads" title="Highlighted 16 Levels" value={`${safePads.length} pads`} />
+        <PanelHeader
+          kicker={surfaceMode === 'keys' ? 'Scale keys' : 'Scale pads'}
+          title={surfaceMode === 'keys' ? 'Highlighted keyboard' : 'Highlighted 16 Levels'}
+          value={surfaceMode === 'keys' ? `${safePads.length} safe` : `${safePads.length} pads`}
+        />
         <PadGrid
           selectedShape={selectedShape}
           pitchWindow={pitchWindow}
@@ -2218,54 +2234,71 @@ function KeyboardSurface({
   onPlayPad: (pad: PadNumber) => void
 }) {
   const keys = buildKeyboardRange(pitchWindow)
+  const whiteKeys = keys.filter((midi) => !BLACK_KEY_PITCH_CLASSES.has(positiveInterval(midi)))
+  const blackKeys = keys.filter((midi) => BLACK_KEY_PITCH_CLASSES.has(positiveInterval(midi)))
+  const whiteIndexByMidi = new Map(whiteKeys.map((midi, index) => [midi, index]))
   const shouldShowScale = highlightMode === 'scale' || highlightMode === 'all'
   const shouldShowChord = highlightMode === 'chord' || highlightMode === 'all'
+
+  function renderKey(midi: number, placement: 'white' | 'black', style?: CSSProperties) {
+    const pad = midiToPadNumber(midi, pitchWindow)
+    const active = pad ? activePads.get(pad) : undefined
+    const highlight = pad ? padHighlights?.[pad] : undefined
+    const roleLabel = highlight?.chordRole && (shouldShowChord || highlight?.melodyRole) ? highlight.chordRole : undefined
+    const classes = [
+      'keyboard-key',
+      placement,
+      pad ? 'in-window' : 'out-window',
+      active && !padHighlights ? 'active' : '',
+      active && !padHighlights ? `interval-${active.interval}` : '',
+      highlight?.isOriginal ? 'original' : '',
+      shouldShowScale && highlight?.isSafe ? 'safe' : '',
+      highlight?.isRoot ? 'root' : '',
+      shouldShowChord && highlight?.isChord ? 'chord' : '',
+      highlight?.melodyRole ? `melody-${highlight.melodyRole}` : '',
+      pad && animatedPads.includes(pad) ? 'pulse' : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    return (
+      <button
+        type="button"
+        className={classes}
+        key={midi}
+        disabled={!pad}
+        style={style}
+        onClick={() => {
+          if (pad) {
+            onPlayPad(pad)
+          }
+        }}
+        aria-label={`${midiToNoteWithOctave(midi)}${pad ? ` Pad ${pad}` : ' outside 16 Levels window'}`}
+      >
+        <span>{midiToNoteWithOctave(midi)}</span>
+        <strong>{midiToNoteName(midi)}</strong>
+        <small>{roleLabel ?? (pad ? `P${pad}` : 'out')}</small>
+      </button>
+    )
+  }
 
   return (
     <div className="keyboard-surface" aria-label="Keyboard view">
       <div className="keyboard-scroll">
-        <div className="keyboard-frame" style={{ '--key-count': keys.length } as CSSProperties}>
-          {keys.map((midi) => {
-            const pad = midiToPadNumber(midi, pitchWindow)
-            const active = pad ? activePads.get(pad) : undefined
-            const highlight = pad ? padHighlights?.[pad] : undefined
-            const isBlackKey = BLACK_KEY_PITCH_CLASSES.has(positiveInterval(midi))
-            const roleLabel = highlight?.chordRole && (shouldShowChord || highlight?.melodyRole) ? highlight.chordRole : undefined
-            const classes = [
-              'keyboard-key',
-              isBlackKey ? 'black' : 'white',
-              pad ? 'in-window' : 'out-window',
-              active && !padHighlights ? 'active' : '',
-              active && !padHighlights ? `interval-${active.interval}` : '',
-              highlight?.isOriginal ? 'original' : '',
-              shouldShowScale && highlight?.isSafe ? 'safe' : '',
-              highlight?.isRoot ? 'root' : '',
-              shouldShowChord && highlight?.isChord ? 'chord' : '',
-              highlight?.melodyRole ? `melody-${highlight.melodyRole}` : '',
-              pad && animatedPads.includes(pad) ? 'pulse' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')
+        <div className="keyboard-frame" style={{ '--white-key-count': whiteKeys.length } as CSSProperties}>
+          <div className="keyboard-white-row">
+            {whiteKeys.map((midi) => renderKey(midi, 'white'))}
+          </div>
+          <div className="keyboard-black-layer">
+            {blackKeys.map((midi) => {
+              const previousWhite = findPreviousWhiteKey(midi, whiteIndexByMidi)
+              if (previousWhite < 0) {
+                return null
+              }
 
-            return (
-              <button
-                type="button"
-                className={classes}
-                key={midi}
-                disabled={!pad}
-                onClick={() => {
-                  if (pad) {
-                    onPlayPad(pad)
-                  }
-                }}
-                aria-label={`${midiToNoteWithOctave(midi)}${pad ? ` Pad ${pad}` : ' outside 16 Levels window'}`}
-              >
-                <span>{midiToNoteWithOctave(midi)}</span>
-                <strong>{midiToNoteName(midi)}</strong>
-                <small>{roleLabel ?? (pad ? `P${pad}` : 'out')}</small>
-              </button>
-            )
-          })}
+              return renderKey(midi, 'black', { '--black-left': `${((previousWhite + 1) / whiteKeys.length) * 100}%` } as CSSProperties)
+            })}
+          </div>
         </div>
       </div>
       <div className="keyboard-caption">
@@ -2277,13 +2310,28 @@ function KeyboardSurface({
 }
 
 function buildKeyboardRange(pitchWindow: ReturnType<typeof createPitchWindow>): number[] {
-  const firstMidi = pitchWindow.minMidi
+  let firstMidi = pitchWindow.minMidi
+  while (BLACK_KEY_PITCH_CLASSES.has(positiveInterval(firstMidi))) {
+    firstMidi -= 1
+  }
+
   let lastMidi = pitchWindow.maxMidi
   if (lastMidi - firstMidi < 24) {
     lastMidi = firstMidi + 24
   }
 
   return Array.from({ length: lastMidi - firstMidi + 1 }, (_, index) => firstMidi + index)
+}
+
+function findPreviousWhiteKey(midi: number, whiteIndexByMidi: Map<number, number>): number {
+  for (let candidate = midi - 1; candidate >= midi - 2; candidate -= 1) {
+    const index = whiteIndexByMidi.get(candidate)
+    if (index !== undefined) {
+      return index
+    }
+  }
+
+  return -1
 }
 
 function midiToPadNumber(midi: number, pitchWindow: ReturnType<typeof createPitchWindow>): PadNumber | null {

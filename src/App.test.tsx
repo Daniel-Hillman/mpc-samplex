@@ -55,6 +55,8 @@ describe('MPC Samplex shell', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Keys' }))
 
+    expect(screen.getByText('Keys to try now')).toBeInTheDocument()
+    expect(screen.queryByText('Pads to try now')).not.toBeInTheDocument()
     expect(container.querySelector('.keyboard-surface')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /C3 Pad 4/i })).toBeInTheDocument()
     expect(screen.getByText(/active 16 Levels window/i)).toBeInTheDocument()
