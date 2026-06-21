@@ -332,8 +332,27 @@ main {
 }
 
 .levels-layout {
-  grid-template-columns: minmax(24rem, 1.1fr) minmax(22rem, 1fr) minmax(19rem, 0.7fr);
+  grid-template-columns: minmax(19rem, 0.72fr) minmax(30rem, 1.2fr) minmax(19rem, 0.72fr);
+  grid-template-areas:
+    "setup pads notes"
+    "retune retune retune";
   align-items: start;
+}
+
+.levels-setup {
+  grid-area: setup;
+}
+
+.levels-pad-panel {
+  grid-area: pads;
+}
+
+.levels-notes {
+  grid-area: notes;
+}
+
+.levels-retune {
+  grid-area: retune;
 }
 
 .melody-layout {
@@ -1132,6 +1151,53 @@ button.chord-chip.active span {
   min-height: 34rem;
 }
 
+.scale-note-list,
+.retune-grid {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.scale-note-card {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: 0.65rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.75rem;
+  background: #f6efe4;
+}
+
+.scale-note-card strong {
+  color: var(--text-strong);
+  font-family: var(--serif);
+  font-size: 1.15rem;
+}
+
+.scale-note-card span {
+  color: var(--mint);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.scale-note-card.missing {
+  background: #f4ecdf;
+}
+
+.scale-note-card.missing span {
+  color: var(--muted);
+}
+
+.retune-grid {
+  grid-template-columns: minmax(16rem, 1fr) minmax(17rem, 1fr) minmax(18rem, 1fr) auto;
+  align-items: start;
+}
+
+.retune-grid .control-row {
+  margin-bottom: 0;
+}
+
 .rank-pill {
   justify-self: start;
   padding: 0.18rem 0.45rem;
@@ -1361,6 +1427,18 @@ button.mini-pad.active {
       "pads pads";
   }
 
+  .levels-layout {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "setup notes"
+      "pads pads"
+      "retune retune";
+  }
+
+  .retune-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .chord-pad-layout {
     grid-template-columns: 1fr 1fr;
   }
@@ -1392,7 +1470,7 @@ button.mini-pad.active {
   .studio-grid .main-surface,
   .home-layout .home-pad-panel,
   .melody-layout .melody-pad-panel,
-  .levels-layout .shape-panel,
+  .levels-layout .levels-pad-panel,
   .groove-layout .wide-panel,
   .split-layout .wide-panel {
     grid-column: 1 / -1;
@@ -1474,6 +1552,14 @@ button.mini-pad.active {
       "phrases";
   }
 
+  .levels-layout {
+    grid-template-areas:
+      "setup"
+      "pads"
+      "notes"
+      "retune";
+  }
+
   .chord-pad-layout {
     grid-template-columns: 1fr;
   }
@@ -1487,7 +1573,8 @@ button.mini-pad.active {
   .helper-pad-actions,
   .home-action-grid,
   .home-mode-grid,
-  .home-recipe-grid {
+  .home-recipe-grid,
+  .retune-grid {
     grid-template-columns: 1fr;
   }
 

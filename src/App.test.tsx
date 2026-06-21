@@ -7,7 +7,7 @@ describe('MPC Samplex shell', () => {
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'MPC Samplex' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /16 Levels/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '16 Levels / Scales' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Melodies' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Chord Pads' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Groove' })).not.toBeInTheDocument()
@@ -59,5 +59,18 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByText('Try these shapes')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Simple hook/i })).toBeInTheDocument()
     expect(screen.getByText(/Gold = home/)).toBeInTheDocument()
+  })
+
+  it('keeps the 16 Levels page focused on scales and retuning', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: '16 Levels / Scales' }))
+
+    expect(screen.getByText('Scale setup')).toBeInTheDocument()
+    expect(screen.getByText('Highlighted 16 Levels')).toBeInTheDocument()
+    expect(screen.getByText('7 notes in scale')).toBeInTheDocument()
+    expect(screen.getByText('Repitch another one-shot')).toBeInTheDocument()
+    expect(screen.queryByText('Best shapes')).not.toBeInTheDocument()
+    expect(screen.queryByText('Chord')).not.toBeInTheDocument()
   })
 })
