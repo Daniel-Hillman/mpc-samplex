@@ -4,7 +4,7 @@ import App from './App'
 
 describe('MPC Samplex shell', () => {
   it('renders the touch-first studio surface with browser audio preview', () => {
-    render(<App />)
+    const { container } = render(<App />)
 
     expect(screen.getByRole('heading', { name: 'MPC Samplex' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '16 Levels / Scales' })).toBeInTheDocument()
@@ -22,6 +22,8 @@ describe('MPC Samplex shell', () => {
     expect(screen.getByRole('button', { name: 'Natural' })).toBeInTheDocument()
     expect(screen.getByText('Play this now')).toBeInTheDocument()
     expect(screen.getByText(/Safe pads:/i)).toBeInTheDocument()
+    const padNumbers = [...container.querySelectorAll('.pad-grid .pad-number')].slice(0, 16).map((pad) => pad.textContent)
+    expect(padNumbers).toEqual(['13', '14', '15', '16', '9', '10', '11', '12', '5', '6', '7', '8', '1', '2', '3', '4'])
   })
 
   it('uses one master key across the pages', () => {

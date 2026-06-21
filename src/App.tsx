@@ -92,6 +92,8 @@ const AUDIO_FEELS: { value: AudioFeel; label: string }[] = [
   { value: 'loose', label: 'Loose' },
 ]
 
+const MPC_PAD_LAYOUT = [13, 14, 15, 16, 9, 10, 11, 12, 5, 6, 7, 8, 1, 2, 3, 4] as PadNumber[]
+
 const GROOVE_LANES = [
   { id: 'kick', label: 'Kick', midiNote: 36 },
   { id: 'snare', label: 'Snare', midiNote: 38 },
@@ -2107,7 +2109,7 @@ function PadGrid({ selectedShape, pitchWindow, padHighlights, highlightMode = 'c
 
   return (
     <div className="pad-grid">
-      {PAD_NUMBERS.map((pad) => {
+      {MPC_PAD_LAYOUT.map((pad) => {
         const active = activePads.get(pad)
         const midi = padToMidi(pitchWindow.sampleRootMidi, pitchWindow.originalPitchPad, pad)
         const highlight = padHighlights?.[pad]
